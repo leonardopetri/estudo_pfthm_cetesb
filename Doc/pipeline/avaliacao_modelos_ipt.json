@@ -1,0 +1,116 @@
+{
+  "gerado_em_utc": "2026-11-17T12:13:13.461798+00:00",
+  "fonte_modelos": "IPT RT125967-205, seção 3, tabela 1, linhas 1 e 2, PDF p.13",
+  "interpretacao": "DOC² da linha 2 interpretado como COD²; coeficientes históricos sem recalibração.",
+  "corte_temporal": "2013-01-01",
+  "escopo": "Comparação posterior ao ano do relatório; mesma coleta e COD/PFTHM exatos. Separa pontos originais e transferência; não implica aprovação dos modelos.",
+  "selecao_operacional": "Modelo 2 em ARPE02800; modelo 1 nos demais. PFTHM medido tem prioridade; sem média ou troca após rejeição.",
+  "modelos": {
+    "ANOR02300": {
+      "coletas": 42,
+      "estimativas_utilizaveis": 42,
+      "resultados_negativos_rejeitados": 0,
+      "lacunas_preenchidas": 14,
+      "pares_teste_com_resultado_negativo": 0,
+      "teste_todos_resultados_brutos": {
+        "n": 16,
+        "mae_ug_l": 99.93881249999998,
+        "rmse_ug_l": 155.63083793688668,
+        "vies_ug_l": -34.511187500000005,
+        "r2": -0.16865845253869738
+      },
+      "teste_somente_estimativas_utilizaveis": {
+        "n": 16,
+        "mae_ug_l": 99.93881249999998,
+        "rmse_ug_l": 155.63083793688668,
+        "vies_ug_l": -34.511187500000005,
+        "r2": -0.16865845253869738
+      },
+      "status": "Experimental; avaliação descritiva, sem aprovação automática para uso regulatório"
+    },
+    "ARPE02800": {
+      "coletas": 86,
+      "estimativas_utilizaveis": 68,
+      "resultados_negativos_rejeitados": 18,
+      "lacunas_preenchidas": 14,
+      "pares_teste_com_resultado_negativo": 9,
+      "teste_todos_resultados_brutos": {
+        "n": 54,
+        "mae_ug_l": 287.6225903703704,
+        "rmse_ug_l": 460.50631115450557,
+        "vies_ug_l": -226.42463111111107,
+        "r2": -0.8347979698390411
+      },
+      "teste_somente_estimativas_utilizaveis": {
+        "n": 45,
+        "mae_ug_l": 235.2239215555556,
+        "rmse_ug_l": 420.22622810253705,
+        "vies_ug_l": -161.7863704444444,
+        "r2": -0.37943777298318904
+      },
+      "status": "Experimental; avaliação descritiva, sem aprovação automática para uso regulatório"
+    }
+  },
+  "equacoes": {
+    "1": {
+      "ponto_original": "ANOR02300",
+      "coletas_com_estimativa": 13889,
+      "pontos_com_estimativa": 502,
+      "resultados_negativos_rejeitados": 0,
+      "avaliacao_desde_2013": {
+        "ponto_original": {
+          "metricas_brutas": {
+            "n": 16,
+            "mae_ug_l": 99.93881249999998,
+            "rmse_ug_l": 155.63083793688668,
+            "vies_ug_l": -34.511187500000005,
+            "r2": -0.16865845253869738
+          },
+          "resultados_negativos": 0,
+          "pontos": 1
+        },
+        "outros_pontos": {
+          "metricas_brutas": {
+            "n": 4753,
+            "mae_ug_l": 146.59725520723754,
+            "rmse_ug_l": 208.402750976384,
+            "vies_ug_l": 19.645618346307597,
+            "r2": 0.03901445240839796
+          },
+          "resultados_negativos": 0,
+          "pontos": 112
+        }
+      }
+    },
+    "2": {
+      "ponto_original": "ARPE02800",
+      "coletas_com_estimativa": 6482,
+      "pontos_com_estimativa": 465,
+      "resultados_negativos_rejeitados": 7407,
+      "avaliacao_desde_2013": {
+        "ponto_original": {
+          "metricas_brutas": {
+            "n": 54,
+            "mae_ug_l": 287.6225903703704,
+            "rmse_ug_l": 460.50631115450557,
+            "vies_ug_l": -226.42463111111107,
+            "r2": -0.8347979698390411
+          },
+          "resultados_negativos": 9,
+          "pontos": 1
+        },
+        "outros_pontos": {
+          "metricas_brutas": {
+            "n": 4715,
+            "mae_ug_l": 1029.0631490752914,
+            "rmse_ug_l": 21435.36122313263,
+            "vies_ug_l": -1005.3192944284197,
+            "r2": -10415.252652411069
+          },
+          "resultados_negativos": 2647,
+          "pontos": 112
+        }
+      }
+    }
+  }
+}

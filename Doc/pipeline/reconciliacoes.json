@@ -1,0 +1,194 @@
+[
+  {
+    "teste": "BILL02030: Excel → tratado → features_coletas_wide",
+    "status": "PASSOU",
+    "linhas": 99,
+    "colunas": 367,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "BILL02030: Excel → tratado → estudo_thm_base",
+    "status": "PASSOU",
+    "linhas": 99,
+    "colunas": 81,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "BILL02030: Excel → tratado → predicoes_risco_thm",
+    "status": "PASSOU",
+    "linhas": 99,
+    "colunas": 58,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "BILL02030: Excel → tratado → features_resumo_parametros",
+    "status": "PASSOU",
+    "linhas": 202,
+    "colunas": 25,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "Exemplo rastreado BILL02030",
+    "status": "PASSOU",
+    "entrada": {
+      "arquivo": "BILL02030 - 2010-2026.xlsx",
+      "parametro": "pH",
+      "valor": "7,00000000",
+      "sinal": "NULL",
+      "unidade": "U.pH"
+    },
+    "saida": {
+      "param_slug": "ph",
+      "limite_numerico": "7.0",
+      "valor_ajustado": "7.0",
+      "unidade_padronizada": "U.pH"
+    }
+  },
+  {
+    "teste": "ABAN02790: Excel → tratado → features_coletas_wide",
+    "status": "PASSOU",
+    "linhas": 1,
+    "colunas": 78,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ABAN02790: Excel → tratado → estudo_thm_base",
+    "status": "PASSOU",
+    "linhas": 1,
+    "colunas": 81,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ABAN02790: Excel → tratado → predicoes_risco_thm",
+    "status": "PASSOU",
+    "linhas": 1,
+    "colunas": 58,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ABAN02790: Excel → tratado → features_resumo_parametros",
+    "status": "PASSOU",
+    "linhas": 0,
+    "colunas": 25,
+    "observacao": "Nenhum resultado numérico para resumo; ausência de linhas reconciliada."
+  },
+  {
+    "teste": "ANOR02300: Excel → tratado → features_coletas_wide",
+    "status": "PASSOU",
+    "linhas": 42,
+    "colunas": 221,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ANOR02300: Excel → tratado → estudo_thm_base",
+    "status": "PASSOU",
+    "linhas": 42,
+    "colunas": 81,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ANOR02300: Excel → tratado → predicoes_risco_thm",
+    "status": "PASSOU",
+    "linhas": 42,
+    "colunas": 58,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ANOR02300: Excel → tratado → features_resumo_parametros",
+    "status": "PASSOU",
+    "linhas": 53,
+    "colunas": 25,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "Exemplo rastreado ANOR02300",
+    "status": "PASSOU",
+    "entrada": {
+      "arquivo": "ANOR02300 - 2010-2026.xlsx",
+      "parametro": "pH",
+      "valor": "8,60000000",
+      "sinal": "NULL",
+      "unidade": "U.pH"
+    },
+    "saida": {
+      "param_slug": "ph",
+      "limite_numerico": "8.6",
+      "valor_ajustado": "8.6",
+      "unidade_padronizada": "U.pH"
+    }
+  },
+  {
+    "teste": "ARPE02800: Excel → tratado → features_coletas_wide",
+    "status": "PASSOU",
+    "linhas": 86,
+    "colunas": 228,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ARPE02800: Excel → tratado → estudo_thm_base",
+    "status": "PASSOU",
+    "linhas": 86,
+    "colunas": 81,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ARPE02800: Excel → tratado → predicoes_risco_thm",
+    "status": "PASSOU",
+    "linhas": 86,
+    "colunas": 58,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "ARPE02800: Excel → tratado → features_resumo_parametros",
+    "status": "PASSOU",
+    "linhas": 60,
+    "colunas": 25,
+    "tolerancia_absoluta_numerica": 1e-12,
+    "observacao": "Todas as colunas produzidas para o ponto; colunas de outros pontos podem existir somente na união global."
+  },
+  {
+    "teste": "Exemplo rastreado ARPE02800",
+    "status": "PASSOU",
+    "entrada": {
+      "arquivo": "ARPE02800 - 2010-2026.xlsx",
+      "parametro": "pH",
+      "valor": "7,10000000",
+      "sinal": "NULL",
+      "unidade": "U.pH"
+    },
+    "saida": {
+      "param_slug": "ph",
+      "limite_numerico": "7.1",
+      "valor_ajustado": "7.1",
+      "unidade_padronizada": "U.pH"
+    }
+  },
+  {
+    "teste": "Junção completa e caches atuais",
+    "status": "PASSOU",
+    "linhas": 39750,
+    "colunas": 119,
+    "comparacao": "exata",
+    "arquivos_adicionais": [
+      "cache_mapa_sp.parquet"
+    ]
+  },
+  {
+    "teste": "Chaves de coletas, nulos intencionais e candidatas ANA",
+    "status": "PASSOU"
+  }
+]

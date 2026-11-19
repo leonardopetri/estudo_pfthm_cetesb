@@ -1,0 +1,50 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python bytecode, virtual environments, and tooling caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+
+# Downloaded spreadsheets and generated analysis results
+/*.xlsx
+/resultados_*/
+/cache_mapa_sp*.parquet
+/cache_mapa_sp.parquet.*
+
+# Logs and local backups
+logs/
+*.log
+*.backup_*
+*.bak
+*.tmp
+~$*
+
+# Local editor and agent configuration
+/.devin/config.local.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini

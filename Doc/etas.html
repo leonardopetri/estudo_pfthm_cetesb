@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centro de Controle Hídrico 360° — Estado de São Paulo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: rgba(15, 23, 42, 0.95);
+            --border: rgba(255, 255, 255, 0.14);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --accent: #38bdf8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg-dark); color: var(--text); overflow: hidden; }
+        #map { width: 100vw; height: 100vh; z-index: 1; }
+        /* Painel Lateral */
+        .sidebar {
+            position: absolute; top: 12px; left: 12px; bottom: 12px;
+            width: 410px; max-width: calc(100vw - 24px);
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            z-index: 1000;
+            display: flex; flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.75);
+        }
+        .header {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.9));
+            border-radius: 14px 14px 0 0;
+        }
+        .header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .header p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+        .QuickNav {
+            display: flex; gap: 6px; padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+            overflow-x: auto;
+        }
+        .QuickNav button {
+            background: rgba(255,255,255,0.07); color: var(--text);
+            border: 1px solid var(--border); border-radius: 6px;
+            padding: 5px 10px; font-size: 11px; font-weight: 600;
+            cursor: pointer; white-space: nowrap; transition: 0.2s;
+        }
+        .QuickNav button:hover { background: var(--accent); color: #000; }
+        .tabs {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border-bottom: 1px solid var(--border);
+            background: rgba(15,23,42,0.6);
+        }
+        .tab-btn {
+            background: none; border: none; color: var(--muted);
+            padding: 11px 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(56,189,248,0.08); }
+        .search-box { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+        .search-box input {
+            width: 100%; padding: 8px 12px; border-radius: 8px;
+            border: 1px solid var(--border); background: rgba(0,0,0,0.35);
+            color: #fff; font-size: 13px; outline: none;
+        }
+        .search-box input:focus { border-color: var(--accent); }
+        .content { flex: 1; overflow-y: auto; padding: 12px 14px; }
+        .content::-webkit-scrollbar { width: 6px; }
+        .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px; padding: 11px 13px;
+            margin-bottom: 9px; cursor: pointer;
+            transition: all 0.18s;
+        }
+        .card:hover { background: rgba(255,255,255,0.09); transform: translateY(-1px); border-color: rgba(56,189,248,0.4); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; }
+        .card-title { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 7px; }
+        .badge { font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 700; text-transform: uppercase; }
+        .card-meta { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+        .coord-tag { font-family: monospace; font-size: 10.5px; color: #38bdf8; margin-top: 4px; display: inline-block; }
+        /* Controls Rodapé */
+        .footer-controls {
+            padding: 10px 14px; border-top: 1px solid var(--border);
+            background: rgba(0,0,0,0.3); font-size: 11.5px;
+            display: flex; flex-direction: column; gap: 6px;
+            border-radius: 0 0 14px 14px;
+        }
+        .control-row { display: flex; justify-content: space-between; align-items: center; }
+        /* Ícones Customizados no Mapa */
+        .eta-marker {
+            width: 28px; height: 28px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: bold; color: #fff;
+            border: 2px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.8);
+            transform: rotate(45deg);
+        }
+        .eta-marker span { transform: rotate(-45deg); display: block; }
+        .dam-marker {
+            width: 22px; height: 22px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #fff;
+            border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+        /* Popups Leaflet */
+        .leaflet-popup-content-wrapper {
+            background: rgba(15, 23, 42, 0.96) !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px !important;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+        }
+        .leaflet-popup-tip { background: rgba(15, 23, 42, 0.96) !important; }
+        .popup-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #38bdf8; }
+        .popup-line { font-size: 12px; margin: 3px 0; color: #cbd5e1; }
+        .popup-btn {
+            margin-top: 8px; width: 100%; padding: 6px;
+            background: #38bdf8; color: #0f172a; border: none;
+            border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer;
+        }
+</style>
+</head>
+<body>
+<div class="sidebar">
+<div class="header">
+<h1>💧 Visão 360° — Abastecimento Estado de SP</h1>
+<p>Representação ilustrativa de ETAs, barragens e áreas de atendimento; confirmar localização e cobertura nas fontes oficiais.</p>
+</div>
+<div class="QuickNav">
+<button onclick="flyRegion([-23.53, -46.62], 10)">📍 Grande SP (RMSP)</button>
+<button onclick="flyRegion([-22.90, -47.05], 10)">📍 Campinas / PCJ</button>
+<button onclick="flyRegion([-23.93, -46.38], 11)">📍 Baixada Santista</button>
+<button onclick="flyRegion([-23.20, -45.88], 10)">📍 Vale do Paraíba</button>
+<button onclick="flyRegion([-22.35, -48.50], 7)">🗺️ Estado Inteiro</button>
+</div>
+<div class="tabs">
+<button class="tab-btn active" onclick="switchTab('etas', this)">⚙️ ETAs (38)</button>
+<button class="tab-btn" onclick="switchTab('barragens', this)">🌊 Represas (25)</button>
+<button class="tab-btn" onclick="switchTab('sistemas', this)">🛡️ Sistemas (16)</button>
+<button class="tab-btn" onclick="switchTab('cidades', this)">🏙️ Cidades</button>
+</div>
+<div class="search-box">
+<input type="text" id="searchInput" placeholder="Buscar ETA, cidade, represa ou sistema..." oninput="renderList()">
+</div>
+<div class="content" id="listContainer"></div>
+<div class="footer-controls">
+<div class="control-row">
+<span>Opacidade das Manchas de Atendimento: <strong id="opVal">50%</strong></span>
+<input type="range" min="0" max="85" value="50" oninput="updatePolygonOpacity(this.value)">
+</div>
+<div class="control-row">
+<label><input type="checkbox" checked onchange="toggleLayerGroup('polygons', this.checked)"> Manchas (50%)</label>
+<label><input type="checkbox" checked onchange="toggleLayerGroup('etas', this.checked)"> ETAs (⚙️)</label>
+<label><input type="checkbox" checked onchange="toggleLayerGroup('dams', this.checked)"> Barragens (🌊)</label>
+<label><input type="checkbox" checked onchange="toggleLayerGroup('lines', this.checked)"> Adutoras</label>
+</div>
+</div>
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// 1. INICIALIZAÇÃO DO MAPA SATELITAL DE ALTA DEFINIÇÃO
+const map = L.map('map', { zoomControl: false }).setView([-23.35, -46.65], 9);
+L.control.zoom({ position: 'topright' }).addTo(map);
+// Camada Satelital Esri World Imagery (Zoom até nível 19)
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Satélite HD: Esri, Maxar, Earthstar Geographics'
+}).addTo(map);
+// Camada Híbrida de Rótulos e Rodovias
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19
+}).addTo(map);
+// Grupos de Camadas
+const layers = {
+    polygons: L.layerGroup().addTo(map),
+    lines: L.layerGroup().addTo(map),
+    dams: L.layerGroup().addTo(map),
+    etas: L.layerGroup().addTo(map)
+};
+// 2. SISTEMAS PRODUTORES E MANCHAS DE COBERTURA (RMSP + ESTADO DE SP)
+const sistemas = [
+    // --- RMSP ---
+    {
+        id: "cantareira", nome: "Sistema Cantareira", regiao: "RMSP", cor: "#ef4444", cap: "982 hm³ (33.000 L/s)",
+        cidades: ["São Paulo (Zona Norte/Centro/Oeste/Leste)", "Osasco", "Carapicuíba", "Barueri (parcial)", "Guarulhos (parcial)", "São Caetano do Sul", "Caieiras", "Franco da Rocha", "Francisco Morato"],
+        poligono: [[-23.27,-46.77],[-23.27,-46.63],[-23.38,-46.50],[-23.45,-46.43],[-23.63,-46.54],[-23.60,-46.76],[-23.55,-46.88],[-23.48,-46.85]]
+    },
+    {
+        id: "altotiete", nome: "Sistema Alto Tietê", regiao: "RMSP", cor: "#3b82f6", cap: "520 hm³ (16.000 L/s)",
+        cidades: ["São Paulo (Zona Leste)", "Guarulhos", "Suzano", "Mogi das Cruzes", "Itaquaquecetuba", "Poá", "Ferraz de Vasconcelos", "Arujá", "Biritiba Mirim", "Salesópolis"],
+        poligono: [[-23.38,-46.52],[-23.36,-46.30],[-23.48,-46.10],[-23.56,-45.84],[-23.66,-46.15],[-23.62,-46.48]]
+    },
+    {
+        id: "guarapiranga", nome: "Sistema Guarapiranga", regiao: "RMSP", cor: "#10b981", cap: "171 hm³ (15.000 L/s)",
+        cidades: ["São Paulo (Zona Sul e Sudoeste)", "Taboão da Serra", "Embu das Artes (leste)", "Itapecerica da Serra (norte)", "Cotia (setor Granja Viana complementar)"],
+        poligono: [[-23.56,-46.78],[-23.58,-46.62],[-23.78,-46.64],[-23.85,-46.78],[-23.70,-46.83]]
+    },
+    {
+        id: "riogrande", nome: "Sistema Rio Grande / Billings", regiao: "RMSP", cor: "#f59e0b", cap: "112 hm³ (5.500 L/s)",
+        cidades: ["São Bernardo do Campo (100%)", "Diadema (100%)", "Santo André (~45%)"],
+        poligono: [[-23.62,-46.63],[-23.63,-46.48],[-23.85,-46.48],[-23.82,-46.63]]
+    },
+    {
+        id: "saolourenco", nome: "Sistema São Lourenço", regiao: "RMSP", cor: "#a855f7", cap: "89 hm³ (6.400 L/s)",
+        cidades: ["Barueri", "Jandira", "Itapevi", "Santana de Parnaíba", "Vargem Grande Paulista", "Carapicuíba (parcial)", "Cotia (parcial)"],
+        poligono: [[-23.41,-47.02],[-23.43,-46.82],[-23.56,-46.84],[-23.66,-47.05]]
+    },
+    {
+        id: "cotia", nome: "Sistema Alto e Baixo Cotia", regiao: "RMSP", cor: "#ec4899", cap: "16,5 hm³ (2.100 L/s)",
+        cidades: ["Cotia", "Embu das Artes", "Itapecerica da Serra", "Embu-Guaçu", "Vargem Grande Paulista (parcial)", "Barueri/Carapicuíba (setores Baixo Cotia)"],
+        poligono: [[-23.52,-46.96],[-23.53,-46.83],[-23.83,-46.80],[-23.78,-47.02]]
+    },
+    {
+        id: "rioclaro", nome: "Sistema Rio Claro", regiao: "RMSP", cor: "#06b6d4", cap: "16 hm³ (4.000 L/s)",
+        cidades: ["Mauá", "Ribeirão Pires", "Rio Grande da Serra", "Santo André (~55%)", "São Paulo (Sapopemba)"],
+        poligono: [[-23.60,-46.52],[-23.62,-46.32],[-23.78,-46.32],[-23.74,-46.52]]
+    },
+    // --- INTERIOR E LITORAL DO ESTADO DE SP ---
+    {
+        id: "pcj_campinas", nome: "Bacia PCJ — Campinas & Região (Atibaia/Capivari/Jaguari)", regiao: "Interior (PCJ)", cor: "#84cc16", cap: "Descarga Cantareira + Rios Atibaia, Jaguari e Capivari",
+        cidades: ["Campinas", "Paulínia", "Indaiatuba", "Hortolândia", "Sumaré", "Valinhos", "Vinhedo", "Atibaia", "Bragança Paulista"],
+        poligono: [[-22.70,-47.30],[-22.75,-46.50],[-23.15,-46.50],[-23.15,-47.30]]
+    },
+    {
+        id: "pcj_piracicaba", nome: "Bacia PCJ — Piracicaba, Jundiaí e Americana", regiao: "Interior (PCJ)", cor: "#22c55e", cap: "Rios Piracicaba, Corumbataí e Jundiaí-Mirim",
+        cidades: ["Piracicaba", "Jundiaí", "Americana", "Limeira", "Rio Claro", "Santa Bárbara d'Oeste", "Várzea Paulista", "Campo Limpo Paulista"],
+        poligono: [[-22.35,-47.80],[-22.40,-47.15],[-23.25,-46.80],[-22.85,-47.85]]
+    },
+    {
+        id: "baixada", nome: "Sistema Integrado Baixada Santista (Mambu/Branco e Pilões/Cubatão)", regiao: "Litoral", cor: "#0ea5e9", cap: "Rios Cubatão, Pilões, Mambu e Branco (~9.800 L/s)",
+        cidades: ["Santos", "São Vicente", "Praia Grande", "Guarujá", "Cubatão", "Bertioga", "Itanhaém", "Mongaguá", "Peruíbe"],
+        poligono: [[-23.75,-46.48],[-23.75,-46.00],[-24.35,-47.00],[-24.15,-46.65]]
+    },
+    {
+        id: "litoralnorte", nome: "Sistema Litoral Norte (Guaxinduba / Cabuçu / Água Branca)", regiao: "Litoral", cor: "#38bdf8", cap: "Mananciais da Serra do Mar (~2.500 L/s)",
+        cidades: ["Caraguatatuba", "São Sebastião", "Ilhabela", "Ubatuba"],
+        poligono: [[-23.30,-45.20],[-23.35,-44.75],[-23.85,-45.45],[-23.60,-45.60]]
+    },
+    {
+        id: "valeparaiba", nome: "Sistema Paraíba do Sul (Vale do Paraíba)", regiao: "Interior (Vale)", cor: "#eab308", cap: "Rio Paraíba do Sul, Represa Jaguari (CESP) e Paraibuna",
+        cidades: ["São José dos Campos", "Taubaté", "Jacareí", "Pindamonhangaba", "Guaratinguetá", "Caçapava", "Lorena", "Caraguatatuba"],
+        poligono: [[-22.70,-45.10],[-23.00,-44.90],[-23.40,-46.05],[-23.10,-46.10]]
+    },
+    {
+        id: "sorocaba", nome: "Sistema Itupararanga / Médio Tietê (Sorocaba)", regiao: "Interior (Sorocaba)", cor: "#f97316", cap: "Represa de Itupararanga (286 hm³) + Rio Sorocaba",
+        cidades: ["Sorocaba", "Votorantim", "Itu", "Salto", "Mairinque", "Alumínio", "São Roque", "Ibiúna"],
+        poligono: [[-23.15,-47.65],[-23.20,-47.10],[-23.70,-47.10],[-23.65,-47.65]]
+    },
+    {
+        id: "ribeirao", nome: "Sistema Pardo / Aquífero Guarani (Ribeirão Preto & Franca)", regiao: "Interior (Nordeste)", cor: "#14b8a6", cap: "Aquífero Guarani + Rio Pardo + Rio Canoas + Rio Mogi-Guaçu",
+        cidades: ["Ribeirão Preto", "Franca", "Araraquara", "São Carlos", "Sertãozinho", "Barretos"],
+        poligono: [[-20.45,-48.60],[-20.50,-47.30],[-22.10,-47.70],[-21.90,-48.50]]
+    },
+    {
+        id: "bauru_tiete", nome: "Sistema Batalha / Baixo Tietê (Bauru, Marília e Botucatu)", regiao: "Interior (Centro-Oeste)", cor: "#d946ef", cap: "Rio Batalha, Rio do Peixe, Rio Pardo e Aquífero Bauru",
+        cidades: ["Bauru", "Marília", "Botucatu", "Jaú", "Lins", "Ourinhos", "Assis"],
+        poligono: [[-21.60,-50.10],[-22.10,-48.30],[-23.00,-48.40],[-22.90,-50.40]]
+    },
+    {
+        id: "noroeste_oeste", nome: "Sistema Turvo / Grande / Peixe (Rio Preto, Araçatuba e Prudente)", regiao: "Interior (Noroeste/Oeste)", cor: "#f43f5e", cap: "Rio Preto, Rio Tietê, Rio Baguaçu, Rio do Peixe e Santo Anastácio",
+        cidades: ["São José do Rio Preto", "Araçatuba", "Presidente Prudente", "Catanduva", "Votuporanga", "Birigui", "Dracena"],
+        poligono: [[-20.20,-51.80],[-20.50,-49.10],[-22.30,-51.20],[-22.20,-51.80]]
+    }
+];
+// 3. TODAS AS ESTAÇÕES DE TRATAMENTO DE ÁGUA (ETAs) - AUDITADAS NO SATÉLITE
+const etas = [
+    // --- ETAs PRINCIPAIS E COMPLEMENTARES DA GRANDE SÃO PAULO (RMSP) ---
+    {
+        nome: "ETA Guaraú (Eng. Teodoro Ramos)", sistema: "cantareira", cor: "#ef4444",
+        coords: [-23.4455, -46.6497], vazao: "33.000 L/s", municipio: "São Paulo (Horto / Santa Inês)",
+        endereco: "Av. Santa Inês, 1932 - Horto Florestal (23°26'44\"S 46°38'59\"W)",
+        atende: "São Paulo (Zona Norte, Centro, partes Oeste/Leste), Osasco, Carapicuíba, São Caetano do Sul, Caieiras, Franco da Rocha, Francisco Morato, Barueri (parcial) e Guarulhos (parcial)."
+    },
+    {
+        nome: "ETA Rodolfo José da Costa e Silva (ETA Alto da Boa Vista - ABV)", sistema: "guarapiranga", cor: "#10b981",
+        coords: [-23.6397, -46.6911], vazao: "15.000 L/s", municipio: "São Paulo (Alto da Boa Vista)",
+        endereco: "Rua Graham Bell, 647 - Alto da Boa Vista (23°38'23\"S 46°41'28\"W)",
+        atende: "São Paulo (Zonas Sul e Sudoeste), Taboão da Serra, Embu das Artes (leste) e Itapecerica da Serra (norte)."
+    },
+    {
+        nome: "ETA Taiaçupeba", sistema: "altotiete", cor: "#3b82f6",
+        coords: [-23.5709, -46.2928], vazao: "16.000 L/s", municipio: "Suzano",
+        endereco: "Rua Waldemar Cusma, 701 - Jd. Aeródromo Internacional (23°34'16\"S 46°17'34\"W)",
+        atende: "São Paulo (Zona Leste), Guarulhos, Suzano, Itaquaquecetuba, Poá, Ferraz de Vasconcelos, Arujá, Mogi das Cruzes (parcial) e Mauá/Santo André (reforço)."
+    },
+    {
+        nome: "ETA Rio Grande (Montanhão)", sistema: "riogrande", cor: "#f59e0b",
+        coords: [-23.7692, -46.5331], vazao: "5.500 L/s", municipio: "São Bernardo do Campo",
+        endereco: "Via Anchieta km 26,5 / Rua Califórnia, 18 - Montanhão (23°46'09\"S 46°31'59\"W)",
+        atende: "São Bernardo do Campo (100%), Diadema (100%) e Santo André (~45%)."
+    },
+    {
+        nome: "ETA Vargem Grande (SPSL)", sistema: "saolourenco", cor: "#a855f7",
+        coords: [-23.6214, -47.0289], vazao: "6.400 L/s", municipio: "Vargem Grande Paulista",
+        endereco: "Estrada da Mineração Ouro Branco, 660 - Tijuco Preto",
+        atende: "Barueri, Jandira, Itapevi, Santana de Parnaíba, Vargem Grande Paulista, Carapicuíba (parcial) e Cotia (parcial)."
+    },
+    {
+        nome: "ETA Casa Grande", sistema: "rioclaro", cor: "#06b6d4",
+        coords: [-23.6265, -45.9525], vazao: "4.000 L/s", municipio: "Biritiba Mirim (Serra do Mar)",
+        endereco: "Estrada de Casa Grande, km 18 - Biritiba Mirim",
+        atende: "Ribeirão Pires (100%), Rio Grande da Serra (100%), Mauá (~85%), Santo André (~55%) e São Paulo (Sapopemba)."
+    },
+    {
+        nome: "ETA Morro Grande", sistema: "cotia", cor: "#ec4899",
+        coords: [-23.6500, -46.9606], vazao: "1.200 L/s", municipio: "Cotia",
+        endereco: "Estrada do Morro Grande, km 42,5 - Reserva Florestal",
+        atende: "Cotia, Embu das Artes, Itapecerica da Serra, Embu-Guaçu e Vargem Grande Paulista (parcial)."
+    },
+    {
+        nome: "ETA Baixo Cotia (Isolina)", sistema: "cotia", cor: "#ec4899",
+        coords: [-23.5392, -46.8625], vazao: "900 L/s", municipio: "Carapicuíba / Divisa Barueri",
+        endereco: "Av. Victório Fornazaro, 3200 - Vila Sul Americana (23°32'21\"S 46°51'45\"W)",
+        atende: "Setores de Barueri, Carapicuíba e Jandira (junto ao Rio Cotia)."
+    },
+    // ETAs Municipais / Locais da Grande SP
+    {
+        nome: "ETA Cabuçu (Sabesp / Guarulhos)", sistema: "cantareira", cor: "#ef4444",
+        coords: [-23.4036, -46.5336], vazao: "400 L/s", municipio: "Guarulhos",
+        endereco: "Av. Pedro de Souza Lopes, 7000 - Cabuçu (23°24'13\"S 46°32'01\"W)",
+        atende: "Bairros da região Norte/Cabuçu de Guarulhos."
+    },
+    {
+        nome: "ETA Tanque Grande (Guarulhos)", sistema: "cantareira", cor: "#ef4444",
+        coords: [-23.3792, -46.4628], vazao: "600 L/s", municipio: "Guarulhos",
+        endereco: "Estrada Guarulhos-Nazaré - Região Tanque Grande",
+        atende: "Setor Norte e São João em Guarulhos."
+    },
+    {
+        nome: "ETA Mogi Leste (Socorro)", sistema: "altotiete", cor: "#3b82f6",
+        coords: [-23.5244, -46.1658], vazao: "1.000 L/s", municipio: "Mogi das Cruzes (SEMAE)",
+        endereco: "Av. Prefeito Carlos Ferreira Lopes / Captação Rio Tietê",
+        atende: "Mogi das Cruzes (distritos centrais e leste)."
+    },
+    {
+        nome: "ETA Mogi Centro", sistema: "altotiete", cor: "#3b82f6",
+        coords: [-23.5186, -46.1833], vazao: "650 L/s", municipio: "Mogi das Cruzes (SEMAE)",
+        endereco: "Rua Otto Unger - Centro, Mogi das Cruzes",
+        atende: "Região Central e Oeste de Mogi das Cruzes."
+    },
+    {
+        nome: "ETA Mairiporã", sistema: "cantareira", cor: "#ef4444",
+        coords: [-23.3183, -46.5869], vazao: "210 L/s", municipio: "Mairiporã",
+        endereco: "Região Central de Mairiporã (Captação Rio Juquery)",
+        atende: "Município de Mairiporã."
+    },
+    {
+        nome: "ETA Santana de Parnaíba", sistema: "saolourenco", cor: "#a855f7",
+        coords: [-23.4472, -46.9158], vazao: "180 L/s", municipio: "Santana de Parnaíba",
+        endereco: "Rua Fernão Dias Falcão - Centro Histórico",
+        atende: "Núcleo central de Santana de Parnaíba (complementada pelo Sistema São Lourenço)."
+    },
+    {
+        nome: "ETA Guarapiranga UF (Ultrafiltração)", sistema: "guarapiranga", cor: "#10b981",
+        coords: [-23.6736, -46.7258], vazao: "2.000 L/s", municipio: "São Paulo (Barragem Guarapiranga)",
+        endereco: "Junto à Barragem de Guarapiranga - Zona Sul",
+        atende: "Reforço direto por membranas de ultrafiltração para a Zona Sul de São Paulo."
+    },
+    // --- ETAs DO INTERIOR E LITORAL DO ESTADO DE SÃO PAULO ---
+    {
+        nome: "ETA Cubatão (Morro dos Quadros - Pilões/Cubatão)", sistema: "baixada", cor: "#0ea5e9",
+        coords: [-23.8894, -46.4472], vazao: "4.500 L/s", municipio: "Cubatão",
+        endereco: "Rodovia Cônego Domênico Rangoni / Rio Cubatão",
+        atende: "Santos, São Vicente, Cubatão, Guarujá (parcial) e Praia Grande (parcial)."
+    },
+    {
+        nome: "ETA Mambu / Branco", sistema: "baixada", cor: "#0ea5e9",
+        coords: [-24.1189, -46.6875], vazao: "3.200 L/s", municipio: "Itanhaém / Divisa Mongaguá",
+        endereco: "Estrada Coronel Joaquim Branco - Captação Rios Mambu e Branco",
+        atende: "Praia Grande, Mongaguá, Itanhaém, Peruíbe e São Vicente (Área Continental)."
+    },
+    {
+        nome: "ETA Jurubatuba (Guarujá)", sistema: "baixada", cor: "#0ea5e9",
+        coords: [-23.9083, -46.2583], vazao: "2.000 L/s", municipio: "Guarujá",
+        endereco: "Captação Rio Jurubatuba / Serra do Mar",
+        atende: "Guarujá e Vicente de Carvalho."
+    },
+    {
+        nome: "ETA Porto Novo (Guaxinduba)", sistema: "litoralnorte", cor: "#38bdf8",
+        coords: [-23.6950, -45.4497], vazao: "1.100 L/s", municipio: "Caraguatatuba",
+        endereco: "Caraguatatuba (23°41'42\"S 45°26'59\"W)",
+        atende: "Caraguatatuba e divisa norte de São Sebastião."
+    },
+    {
+        nome: "ETA 3 & 4 — Sousas (SANASA Campinas)", sistema: "pcj_campinas", cor: "#84cc16",
+        coords: [-22.8797, -46.9736], vazao: "4.000 L/s", municipio: "Campinas (Distrito de Sousas)",
+        endereco: "Captação Rio Atibaia - Sousas, Campinas",
+        atende: "Mais de 70% do município de Campinas (regiões Norte, Leste, Central e Barão Geraldo)."
+    },
+    {
+        nome: "ETA Capivari (SANASA Campinas)", sistema: "pcj_campinas", cor: "#84cc16",
+        coords: [-22.9719, -47.1258], vazao: "1.400 L/s", municipio: "Campinas (Sul/Sudoeste)",
+        endereco: "Captação Rio Capivari - Região Ouro Verde / Viracopos",
+        atende: "Regiões Sul e Sudoeste de Campinas (Ouro Verde, Campo Grande)."
+    },
+    {
+        nome: "ETA Atibaia (SAAE)", sistema: "pcj_campinas", cor: "#84cc16",
+        coords: [-23.1039, -46.5456], vazao: "650 L/s", municipio: "Atibaia",
+        endereco: "Rua Ana Neri, S/N - Jd. Terceiro Centenário (23°06'14\"S 46°32'44\"W)",
+        atende: "Município de Atibaia (captação direta no Rio Atibaia)."
+    },
+    {
+        nome: "ETA Bragança Paulista (Sabesp)", sistema: "pcj_campinas", cor: "#84cc16",
+        coords: [-22.9469, -46.5381], vazao: "580 L/s", municipio: "Bragança Paulista",
+        endereco: "Captação Rio Jaguari (22°54'20\"S 46°32'33\"W) / ETA Lavapés",
+        atende: "Município de Bragança Paulista."
+    },
+    {
+        nome: "ETA Anhangabaú (DAE Jundiaí)", sistema: "pcj_piracicaba", cor: "#22c55e",
+        coords: [-23.1956, -46.8906], vazao: "2.300 L/s", municipio: "Jundiaí",
+        endereco: "Vila Jundiainópolis - Jundiaí (Represa Jundiaí-Mirim / Rio Atibaia)",
+        atende: "Quase 100% do município de Jundiaí."
+    },
+    {
+        nome: "ETA Capim Fino (SEMAE Piracicaba)", sistema: "pcj_piracicaba", cor: "#22c55e",
+        coords: [-22.6583, -47.6250], vazao: "2.100 L/s", municipio: "Piracicaba",
+        endereco: "Captação Rio Corumbataí - Piracicaba",
+        atende: "Piracicaba (junto com a ETA Luiz de Queiroz)."
+    },
+    {
+        nome: "ETA Americana (DAE)", sistema: "pcj_piracicaba", cor: "#22c55e",
+        coords: [-22.7350, -47.3180], vazao: "1.200 L/s", municipio: "Americana",
+        endereco: "Captação Rio Piracicaba - Americana",
+        atende: "Município de Americana."
+    },
+    {
+        nome: "ETA Cerrado (SAAE Sorocaba)", sistema: "sorocaba", cor: "#f97316",
+        coords: [-23.5139, -47.4847], vazao: "2.200 L/s", municipio: "Sorocaba",
+        endereco: "Av. General Carneiro - Cerrado (Adutora da Represa Itupararanga)",
+        atende: "Sorocaba (Regiões Oeste, Sul, Central e Norte)."
+    },
+    {
+        nome: "ETA Éden & Vitória Régia (SAAE Sorocaba)", sistema: "sorocaba", cor: "#f97316",
+        coords: [-23.4133, -47.4617], vazao: "1.300 L/s", municipio: "Sorocaba",
+        endereco: "Parque Vitória Régia (23°24'48\"S 47°27'42\"W) / Éden",
+        atende: "Zona Industrial, Éden e Zona Norte de Sorocaba."
+    },
+    {
+        nome: "ETA Central São José dos Campos (Sabesp)", sistema: "valeparaiba", cor: "#eab308",
+        coords: [-23.1889, -45.8769], vazao: "2.800 L/s", municipio: "São José dos Campos",
+        endereco: "Vila Adyana / Captação Rio Paraíba do Sul",
+        atende: "São José dos Campos."
+    },
+    {
+        nome: "ETA Taubaté (Sabesp)", sistema: "valeparaiba", cor: "#eab308",
+        coords: [-23.0189, -45.5569], vazao: "1.500 L/s", municipio: "Taubaté",
+        endereco: "Captação Rio Paraíba do Sul / Rio Una",
+        atende: "Taubaté e Tremembé."
+    },
+    {
+        nome: "ETA Central Jacareí (SAAE)", sistema: "valeparaiba", cor: "#eab308",
+        coords: [-23.3050, -45.9658], vazao: "1.000 L/s", municipio: "Jacareí",
+        endereco: "Captação Rio Paraíba do Sul - Jacareí",
+        atende: "Município de Jacareí."
+    },
+    {
+        nome: "Sistema Aquífero Guarani / ETA Rio Pardo (RP)", sistema: "ribeirao", cor: "#14b8a6",
+        coords: [-21.1775, -47.8103], vazao: "3.600 L/s", municipio: "Ribeirão Preto (SAERP)",
+        endereco: "Mais de 100 poços tubulares profundos no Aquífero Guarani",
+        atende: "100% de Ribeirão Preto."
+    },
+    {
+        nome: "ETA Franca (Sabesp - Rio Canoas)", sistema: "ribeirao", cor: "#14b8a6",
+        coords: [-20.5186, -47.3894], vazao: "1.300 L/s", municipio: "Franca",
+        endereco: "Captação Rio Canoas e Pouso Alegre - Franca",
+        atende: "Município de Franca."
+    },
+    {
+        nome: "ETA Fonte Luminosa (DAAE Araraquara)", sistema: "ribeirao", cor: "#14b8a6",
+        coords: [-21.7800, -48.1720], vazao: "1.100 L/s", municipio: "Araraquara",
+        endereco: "Setor Fonte Luminosa (Captação Ribeirão das Cruzes + Guarani)",
+        atende: "Município de Araraquara."
+    },
+    {
+        nome: "ETA Vila Falcão / Batalha (DAE Bauru)", sistema: "bauru_tiete", cor: "#d946ef",
+        coords: [-22.3336, -49.0928], vazao: "1.500 L/s", municipio: "Bauru",
+        endereco: "Vila Pacífico / Captação Rio Batalha + Poços Aquífero Bauru",
+        atende: "Município de Bauru."
+    },
+    {
+        nome: "ETA Peixe (DAEM Marília)", sistema: "bauru_tiete", cor: "#d946ef",
+        coords: [-22.2139, -49.9458], vazao: "1.100 L/s", municipio: "Marília",
+        endereco: "Captação Rio do Peixe + Sistema Cascata",
+        atende: "Município de Marília."
+    },
+    {
+        nome: "ETA Palácio das Águas (SEMAE Rio Preto)", sistema: "noroeste_oeste", cor: "#f43f5e",
+        coords: [-20.8086, -49.3658], vazao: "1.800 L/s", municipio: "São José do Rio Preto",
+        endereco: "Represa Municipal (Rio Preto) + Aquíferos Bauru e Guarani",
+        atende: "Município de São José do Rio Preto."
+    },
+    {
+        nome: "ETA Presidente Prudente (Sabesp)", sistema: "noroeste_oeste", cor: "#f43f5e",
+        coords: [-22.1256, -51.3889], vazao: "1.200 L/s", municipio: "Presidente Prudente",
+        endereco: "Captação Rio do Peixe e Rio Santo Anastácio",
+        atende: "Presidente Prudente e Álvares Machado."
+    }
+];
+// 4. BARRAGENS E REPRESAS (RMSP E ESTADO DE SP)
+const barragens = [
+    // Cantareira
+    { nome: "Barragem Jaguari", sistema: "cantareira", cor: "#ef4444", coords: [-22.9244, -46.4252], cidade: "Vargem / Bragança Paulista", info: "Sistema Equivalente Jaguari-Jacareí (808 hm³)" },
+    { nome: "Barragem Jacareí", sistema: "cantareira", cor: "#ef4444", coords: [-22.9669, -46.3925], cidade: "Joanópolis / Piracaia", info: "Conectada à Jaguari por canal aberto" },
+    { nome: "Barragem Cachoeira", sistema: "cantareira", cor: "#ef4444", coords: [-23.0475, -46.2758], cidade: "Piracaia", info: "Capacidade útil: 69 hm³" },
+    { nome: "Barragem Atibainha", sistema: "cantareira", cor: "#ef4444", coords: [-23.1869, -46.3408], cidade: "Nazaré Paulista", info: "Capacidade: 96 hm³ (Recebe transposição Paraíba do Sul)" },
+    { nome: "Barragem Paiva Castro (Juquery)", sistema: "cantareira", cor: "#ef4444", coords: [-23.3292, -46.6383], cidade: "Franco da Rocha / Mairiporã", info: "Última represa antes da Elevatória Santa Inês" },
+    { nome: "Barragem Águas Claras", sistema: "cantareira", cor: "#ef4444", coords: [-23.3975, -46.6572], cidade: "São Paulo (Serra da Cantareira)", info: "Pulmão hidráulico no topo da Serra para a ETA Guaraú" },
+    // Alto Tietê
+    { nome: "Barragem Ponte Nova", sistema: "altotiete", cor: "#3b82f6", coords: [-23.5936, -45.9669], cidade: "Salesópolis / Biritiba Mirim", info: "Maior reservatório do Alto Tietê (292 hm³)" },
+    { nome: "Barragem Paraitinga", sistema: "altotiete", cor: "#3b82f6", coords: [-23.5628, -45.8856], cidade: "Salesópolis", info: "Regulação de cabeceira do Rio Paraitinga" },
+    { nome: "Barragem Biritiba", sistema: "altotiete", cor: "#3b82f6", coords: [-23.6050, -46.0711], cidade: "Biritiba Mirim", info: "Interligada ao Rio Tietê por canal reversível" },
+    { nome: "Barragem Jundiaí", sistema: "altotiete", cor: "#3b82f6", coords: [-23.6406, -46.1783], cidade: "Mogi das Cruzes", info: "Transfere água por túnel para Taiaçupeba" },
+    { nome: "Barragem Taiaçupeba", sistema: "altotiete", cor: "#3b82f6", coords: [-23.5786, -46.2928], cidade: "Suzano / Mogi das Cruzes", info: "Alimenta diretamente a ETA Taiaçupeba" },
+    // Guarapiranga, Rio Grande e Billings
+    { nome: "Barragem Guarapiranga", sistema: "guarapiranga", cor: "#10b981", coords: [-23.6714, -46.7236], cidade: "São Paulo (Socorro)", info: "171 hm³ — Reforçada pelos braços Taquacetuba e Capivari" },
+    { nome: "Barragem Anchieta (Sistema Rio Grande)", sistema: "riogrande", cor: "#f59e0b", coords: [-23.7764, -46.5356], cidade: "São Bernardo do Campo (km 29)", info: "Isola o braço limpo do Rio Grande da Billings central" },
+    { nome: "Barragem Pedreira (Billings EMAE)", sistema: "riogrande", cor: "#f59e0b", coords: [-23.7083, -46.6631], cidade: "São Paulo (Pedreira)", info: "Corpo central da Represa Billings (995 hm³)" },
+    { nome: "Barragem Summit Control (Billings)", sistema: "riogrande", cor: "#f59e0b", coords: [-23.8603, -46.4631], cidade: "São Bernardo (Alto da Serra)", info: "Controle de adução para Usina Henry Borden e ETA Cubatão" },
+    // São Lourenço, Cotia e Rio Claro
+    { nome: "Barragem Cachoeira da Graça", sistema: "saolourenco", cor: "#a855f7", coords: [-23.9519, -47.0819], cidade: "Ibiúna (Vale do Ribeira)", info: "89 hm³ — Bombeia água vencendo 300m de serra até Vargem Grande" },
+    { nome: "Barragem Pedro Beicht", sistema: "cotia", cor: "#ec4899", coords: [-23.7269, -46.9686], cidade: "Cotia (Morro Grande)", info: "Reserva Florestal do Morro Grande" },
+    { nome: "Barragem Cachoeira da Graça (Cotia)", sistema: "cotia", cor: "#ec4899", coords: [-23.6558, -46.9614], cidade: "Cotia", info: "Junto à ETA Morro Grande" },
+    { nome: "Barragem Poço Preto (Ribeirão do Campo)", sistema: "rioclaro", cor: "#06b6d4", coords: [-23.6586, -45.8236], cidade: "Salesópolis / Biritiba", info: "Manancial de montanha da Serra do Mar" },
+    // Grandes Represas do Interior Paulista
+    { nome: "Barragem de Itupararanga", sistema: "sorocaba", cor: "#f97316", coords: [-23.6119, -47.3975], cidade: "Votorantim / Ibiúna", info: "286 hm³ — Principal manancial da Região Metropolitana de Sorocaba" },
+    { nome: "Barragem Jaguari (Bacia Paraíba do Sul)", sistema: "valeparaiba", cor: "#eab308", coords: [-23.2269, -46.0469], cidade: "Jacareí / Santa Isabel", info: "Interligada ao Atibainha (Cantareira) por adutora de 20 km" },
+    { nome: "Barragem Paraibuna", sistema: "valeparaiba", cor: "#eab308", coords: [-23.3686, -45.6625], cidade: "Paraibuna", info: "Maior reservatório de regularização do Rio Paraíba do Sul" },
+    { nome: "Represa Parque da Cidade (Jundiaí-Mirim)", sistema: "pcj_piracicaba", cor: "#22c55e", coords: [-23.1544, -46.8894], cidade: "Jundiaí", info: "Reserva hídrica estratégica da DAE Jundiaí" },
+    { nome: "Represa de Salto Grande (Americana)", sistema: "pcj_piracicaba", cor: "#22c55e", coords: [-22.7100, -47.2750], cidade: "Americana", info: "Reservatório no Rio Atibaia" },
+    { nome: "Represa Municipal de Rio Preto", sistema: "noroeste_oeste", cor: "#f43f5e", coords: [-20.8130, -49.3580], cidade: "São José do Rio Preto", info: "Captação superficial para a ETA Palácio das Águas" }
+];
+// 5. TÚNEIS E ADUTORAS ESTRATÉGICAS
+const adutoras = [
+    { nome: "Túnel Sistema Cantareira (Jaguari -> Cachoeira -> Atibainha -> Paiva Castro -> ETA Guaraú)", cor: "#ef4444", coords: [[-22.9244,-46.4252],[-23.0475,-46.2758],[-23.1869,-46.3408],[-23.3292,-46.6383],[-23.3975,-46.6572],[-23.4455,-46.6497]] },
+    { nome: "Interligação Jaguari (Paraíba do Sul) -> Atibainha (Cantareira)", cor: "#eab308", coords: [[-23.2269,-46.0469],[-23.1869,-46.3408]] },
+    { nome: "Adutora Sistema São Lourenço (Ibiúna -> ETA Vargem Grande -> Barueri)", cor: "#a855f7", coords: [[-23.9519,-47.0819],[-23.6214,-47.0289],[-23.5110,-46.8760]] },
+    { nome: "Interligação Billings (Rio Pequeno) -> Represa Taiaçupeba", cor: "#f59e0b", coords: [[-23.7764,-46.5356],[-23.5786,-46.2928]] },
+    { nome: "Interligação Billings (Taquacetuba) -> Guarapiranga", cor: "#10b981", coords: [[-23.7850,-46.6550],[-23.6714,-46.7236]] },
+    { nome: "Adutora Itupararanga -> ETA Cerrado (Sorocaba)", cor: "#f97316", coords: [[-23.6119,-47.3975],[-23.5139,-47.4847]] }
+];
+// 6. CIDADES MAPEADAS PARA BUSCA RÁPIDA 360°
+const cidadesDB = [
+    { nome: "São Paulo (Capital)", coords: [-23.5505, -46.6333], sistemas: ["cantareira", "altotiete", "guarapiranga", "rioclaro"], desc: "Norte/Centro: ETA Guaraú (Cantareira) | Leste: ETA Taiaçupeba (Alto Tietê) e ETA Casa Grande (Rio Claro) | Sul/Sudoeste: ETA Alto da Boa Vista (Guarapiranga)." },
+    { nome: "Barueri", coords: [-23.5114, -46.8764], sistemas: ["saolourenco", "cantareira", "cotia"], desc: "Atendimento híbrido: ETA Vargem Grande (São Lourenço), ETA Guaraú (Cantareira - Alphaville/Tamboré) e ETA Baixo Cotia (Isolina)." },
+    { nome: "Guarulhos", coords: [-23.4543, -46.5337], sistemas: ["altotiete", "cantareira"], desc: "Abastecida pela ETA Taiaçupeba (Alto Tietê), ETA Guaraú (Cantareira) e pelas ETAs próprias Cabuçu e Tanque Grande." },
+    { nome: "Osasco", coords: [-23.5325, -46.7917], sistemas: ["cantareira"], desc: "Abastecida integralmente pela ETA Guaraú (Sistema Cantareira)." },
+    { nome: "Santo André", coords: [-23.6639, -46.5383], sistemas: ["rioclaro", "riogrande", "altotiete"], desc: "Abastecida pela ETA Casa Grande (Rio Claro ~55%), ETA Rio Grande (Billings ~45%) e reforço do Alto Tietê." },
+    { nome: "São Bernardo do Campo", coords: [-23.6944, -46.5654], sistemas: ["riogrande"], desc: "Abastecida 100% pela ETA Rio Grande (Montanhão - Braço Rio Grande da Billings)." },
+    { nome: "São Caetano do Sul", coords: [-23.6229, -46.5548], sistemas: ["cantareira"], desc: "Abastecida 100% pela Adutora SAM a partir da ETA Guaraú (Sistema Cantareira)." },
+    { nome: "Carapicuíba", coords: [-23.5227, -46.8358], sistemas: ["cantareira", "saolourenco", "cotia"], desc: "Atendida pela ETA Guaraú (Cantareira), ETA Vargem Grande (São Lourenço) e ETA Baixo Cotia." },
+    { nome: "Cotia", coords: [-23.6039, -46.9189], sistemas: ["cotia", "saolourenco", "guarapiranga"], desc: "Atendida pela ETA Morro Grande (Alto Cotia), ETA Vargem Grande (São Lourenço) e setores pela Guarapiranga." },
+    { nome: "Mogi das Cruzes", coords: [-23.5225, -46.1883], sistemas: ["altotiete"], desc: "Atendida pelas ETAs Mogi Leste e Mogi Centro (SEMAE - Captação Rio Tietê) e ETA Taiaçupeba." },
+    { nome: "Campinas", coords: [-22.9056, -47.0608], sistemas: ["pcj_campinas"], desc: "Atendida pelas ETAs 3 e 4 em Sousas (Rio Atibaia - vazão regulada pelo Cantareira) e ETA Capivari (SANASA)." },
+    { nome: "Jundiaí", coords: [-23.1857, -46.8978], sistemas: ["pcj_piracicaba"], desc: "Atendida pela ETA Anhangabaú (DAE Jundiaí), captando na Represa Jundiaí-Mirim com transposição do Rio Atibaia." },
+    { nome: "Sorocaba", coords: [-23.5015, -47.4526], sistemas: ["sorocaba"], desc: "Atendida pela ETA Cerrado (Represa de Itupararanga) e ETAs Éden/Vitória Régia (SAAE)." },
+    { nome: "Santos / Baixada Santista", coords: [-23.9608, -46.3336], sistemas: ["baixada"], desc: "Atendida pela ETA Cubatão (Pilões/Cubatão), ETA Mambu/Branco e ETA Jurubatuba." },
+    { nome: "São José dos Campos", coords: [-23.1791, -45.8872], sistemas: ["valeparaiba"], desc: "Atendida pela ETA Central SJC (Sabesp) com captação no Rio Paraíba do Sul." },
+    { nome: "Piracicaba", coords: [-22.7253, -47.6492], sistemas: ["pcj_piracicaba"], desc: "Atendida pela ETA Capim Fino (Rio Corumbataí) e ETA Luiz de Queiroz (Rio Piracicaba)." },
+    { nome: "Ribeirão Preto", coords: [-21.1775, -47.8103], sistemas: ["ribeirao"], desc: "Abastecida 100% por poços profundos do Aquífero Guarani (SAERP)." },
+    { nome: "Bauru", coords: [-22.3145, -49.0606], sistemas: ["bauru_tiete"], desc: "Abastecida pela ETA Batalha (Rio Batalha) e poços do Aquífero Bauru." },
+    { nome: "São José do Rio Preto", coords: [-20.8197, -49.3794], sistemas: ["noroeste_oeste"], desc: "Abastecida pela ETA Palácio das Águas (Represa Municipal) e Aquífero Guarani." }
+];
+// 7. RENDERIZAÇÃO DAS CAMADAS NO MAPA
+let polygonRefs = [];
+function drawMapElements(filterSystems = null) {
+    layers.polygons.clearLayers();
+    layers.lines.clearLayers();
+    layers.dams.clearLayers();
+    layers.etas.clearLayers();
+    polygonRefs = [];
+    const currentOpacity = document.getElementById('opVal').innerText.replace('%','') / 100;
+    // Polígonos com 50% de transparência
+    sistemas.forEach(s => {
+        if (filterSystems && !filterSystems.includes(s.id)) return;
+        const poly = L.polygon(s.poligono, {
+            color: s.cor,
+            weight: 2,
+            fillColor: s.cor,
+            fillOpacity: currentOpacity
+        }).addTo(layers.polygons);
+        poly.bindPopup(`
+<div class="popup-title">${s.nome}</div>
+<div class="popup-line"><b>Capacidade / Manancial:</b> ${s.cap}</div>
+<div class="popup-line"><b>Cidades Atendidas:</b> ${s.cidades.join(', ')}</div>
+        `);
+        polygonRefs.push(poly);
+    });
+    // Linhas de Adução
+    adutoras.forEach(a => {
+        L.polyline(a.coords, {
+            color: a.cor, weight: 3, dashArray: '6, 8', opacity: 0.9
+        }).addTo(layers.lines).bindPopup(`<div class="popup-title">Adutora / Túnel</div><div class="popup-line">${a.nome}</div>`);
+    });
+    // Barragens
+    barragens.forEach(b => {
+        if (filterSystems && !filterSystems.includes(b.sistema)) return;
+        const icon = L.divIcon({
+            className: '',
+            html: `<div class="dam-marker" style="background:${b.cor}">🌊</div>`,
+            iconSize: [22, 22], iconAnchor: [11, 11]
+        });
+        L.marker(b.coords, { icon }).addTo(layers.dams).bindPopup(`
+<div class="popup-title">🌊 ${b.nome}</div>
+<div class="popup-line"><b>Município:</b> ${b.cidade}</div>
+<div class="popup-line"><b>Detalhes:</b> ${b.info}</div>
+<div class="popup-line"><b>Coordenadas:</b> ${b.coords[0].toFixed(4)}, ${b.coords[1].toFixed(4)}</div>
+<button class="popup-btn" onclick="map.flyTo([${b.coords[0]}, ${b.coords[1]}], 17)">🔍 Zoom Satélite na Crista da Barragem</button>
+        `);
+    });
+    // ETAs (Ícones Hexagonais/Diamante em Destaque)
+    etas.forEach(e => {
+        if (filterSystems && !filterSystems.includes(e.sistema)) return;
+        const icon = L.divIcon({
+            className: '',
+            html: `<div class="eta-marker" style="background:${e.cor}"><span>⚙️</span></div>`,
+            iconSize: [28, 28], iconAnchor: [14, 14]
+        });
+        L.marker(e.coords, { icon }).addTo(layers.etas).bindPopup(`
+<div class="popup-title">⚙️ ${e.nome}</div>
+<div class="popup-line"><b>Vazão / Porte:</b> ${e.vazao}</div>
+<div class="popup-line"><b>Localização Exata:</b> ${e.endereco}</div>
+<div class="popup-line"><b>Municípios que Abastece:</b> ${e.atende}</div>
+<div class="popup-line"><b>Coordenadas Auditadas:</b> ${e.coords[0].toFixed(4)}, ${e.coords[1].toFixed(4)}</div>
+<button class="popup-btn" onclick="map.flyTo([${e.coords[0]}, ${e.coords[1]}], 18)">🛰️ Inspecionar Tanques da ETA no Satélite (Zoom 18)</button>
+        `);
+    });
+}
+// 8. INTERFACE LATERAL E BUSCA
+let currentTab = 'etas';
+function switchTab(tab, btn) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    drawMapElements(null);
+    renderList();
+}
+function renderList() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const container = document.getElementById('listContainer');
+    container.innerHTML = '';
+    if (currentTab === 'etas') {
+        etas.filter(e => (e.nome + e.municipio + e.atende).toLowerCase().includes(q)).forEach(e => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.onclick = () => {
+                drawMapElements(null);
+                map.flyTo(e.coords, 18, { duration: 1.4 });
+            };
+            div.innerHTML = `
+<div class="card-header">
+<div class="card-title"><span style="color:${e.cor}">⚙️</span> ${e.nome}</div>
+<span class="badge" style="background:${e.cor}33; color:${e.cor}; border:1px solid ${e.cor}">${e.vazao}</span>
+</div>
+<div class="card-meta"><b>📍 Endereço:</b> ${e.endereco}</div>
+<div class="card-meta"><b>🏙️ Abastece:</b> ${e.atende}</div>
+<span class="coord-tag">🎯 Satélite Auditado: ${e.coords[0].toFixed(4)}, ${e.coords[1].toFixed(4)} (Clique para Zoom 18)</span>
+            `;
+            container.appendChild(div);
+        });
+    } else if (currentTab === 'barragens') {
+        barragens.filter(b => (b.nome + b.cidade + b.info).toLowerCase().includes(q)).forEach(b => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.onclick = () => {
+                drawMapElements(null);
+                map.flyTo(b.coords, 16, { duration: 1.4 });
+            };
+            div.innerHTML = `
+<div class="card-header">
+<div class="card-title"><span style="color:${b.cor}">🌊</span> ${b.nome}</div>
+<span class="badge" style="background:${b.cor}33; color:${b.cor}">${b.cidade}</span>
+</div>
+<div class="card-meta">${b.info}</div>
+<span class="coord-tag">🎯 Coord: ${b.coords[0].toFixed(4)}, ${b.coords[1].toFixed(4)}</span>
+            `;
+            container.appendChild(div);
+        });
+    } else if (currentTab === 'sistemas') {
+        sistemas.filter(s => (s.nome + s.regiao + s.cidades.join(' ')).toLowerCase().includes(q)).forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.onclick = () => {
+                drawMapElements([s.id]);
+                const bounds = L.polygon(s.poligono).getBounds();
+                map.flyToBounds(bounds, { padding: [50, 50], duration: 1.2 });
+            };
+            div.innerHTML = `
+<div class="card-header">
+<div class="card-title"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.cor}"></span> ${s.nome}</div>
+<span class="badge" style="background:${s.cor}33; color:${s.cor}">${s.regiao}</span>
+</div>
+<div class="card-meta"><b>Capacidade:</b> ${s.cap}</div>
+<div class="card-meta"><b>Cidades:</b> ${s.cidades.join(', ')}</div>
+            `;
+            container.appendChild(div);
+        });
+    } else if (currentTab === 'cidades') {
+        cidadesDB.filter(c => (c.nome + c.desc).toLowerCase().includes(q)).forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.onclick = () => {
+                drawMapElements(c.sistemas);
+                map.flyTo(c.coords, 11, { duration: 1.2 });
+            };
+            div.innerHTML = `
+<div class="card-header">
+<div class="card-title">🏙️ ${c.nome}</div>
+<span class="badge" style="background:rgba(56,189,248,0.2); color:#38bdf8">${c.sistemas.length} Sistema(s)</span>
+</div>
+<div class="card-meta">${c.desc}</div>
+<span class="coord-tag">🔍 Clique para isolar as ETAs, represas e manchas que abastecem esta cidade</span>
+            `;
+            container.appendChild(div);
+        });
+    }
+}
+function updatePolygonOpacity(val) {
+    document.getElementById('opVal').innerText = val + '%';
+    polygonRefs.forEach(p => p.setStyle({ fillOpacity: val / 100 }));
+}
+function toggleLayerGroup(groupName, show) {
+    if (show) map.addLayer(layers[groupName]);
+    else map.removeLayer(layers[groupName]);
+}
+function flyRegion(coords, zoom) {
+    drawMapElements(null);
+    map.flyTo(coords, zoom, { duration: 1.2 });
+}
+// Inicializar tudo
+drawMapElements(null);
+renderList();
+</script>
+</body>
+</html>

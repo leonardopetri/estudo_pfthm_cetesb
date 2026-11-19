@@ -1,0 +1,56 @@
+{
+  "gerado_em_utc": "2026-11-19T02:08:14.737024+00:00",
+  "versao_dados": "2026-11-17-v4-ipt-cod",
+  "codigo_sha256": {
+    "app_mapa_sp.py": "1c9b7c84f6809c39008409e6d1656d763a2d3108e86fb3a927d37e7f8eb17082",
+    "avaliar_modelos_ipt.py": "5c11880cc8c3481da445691dbc1e329cd5344cd4080e8a3719b6673ad2cc6407",
+    "baixar_todas_ugrhis.py": "e834e5cde31cc244597bb221557fc745315f217e392d65b97085e7bad823682e",
+    "consolidar_brutos_excel.py": "1a8f095b0026dcfa2fafe6eb347798bda789ea1030a8ac5a79a6a8292da9322c",
+    "integrar_ana_etas.py": "702b82ab3b575a779f51a5d99d0e16f006118ba6df5f966d397fc2883dff1484",
+    "pipeline_cetesb.py": "ede81613c5a1fe132a6df7ad9a5cdf0f599510c0a268f019ce08373a27e45719",
+    "publicar_resultados_sql.py": "7994726e9d66b81327725feab91066f0ea9a6a47e0afe224641c0052b7d0124d",
+    "reprocessar_local.py": "279e1fa89bc64a28f1d136657150872858cb08dbea8c449b36b1df89fc7d0dfe",
+    "scraper_infoaguas.py": "4ea2ccebf7ddb4eb090c939be6468ce42e329b4252732e676530b75a5c357a5c",
+    "test_validacao.py": "0dee1c32d0a7e0a44b6044da385611114ff3262aeeeb93c342103d39d9846d4a",
+    "validar_equivalencia.py": "3693cb3dd2ed4c0bb762895943f151b49fccdb94da71169c95e957573b0c5420"
+  },
+  "manifesto_sha256": "39a6310538fd6b1dcc2fd61e63c27a6da4683f7e756288d8b2312d62dec9f49c",
+  "documentacao_codigo_sha256": {
+    "gerar_documentacao.py": "730236ef5e3731843e673f34cfd264dd69216868dd3739db3ca2925575d7aa09",
+    "inventariar_sql.py": "7858acf3d10a91a93abd7cc90f11b9bf1198b68dab097eb689932d87f2c3492d",
+    "regras_documentais.py": "e4db54efdd744fc59523c5e2be3ee96a6fd15a9ceb2753f88ad31d575280552d",
+    "validar_documentacao.py": "f3cfcfd71f98cf72e2df31b460936302055827ad2d4e9907d66560926ddd3a7b"
+  },
+  "tabelas_sql": 682,
+  "objetos_fisicos": 4029,
+  "entradas_colunas": 24864,
+  "regras": 44,
+  "pendencias": 24,
+  "colunas_com_descricao_nao_confirmada": 1821,
+  "colunas_com_evidencia_codigo_atual": 23044,
+  "colunas_sql_inventariadas": 23852,
+  "colunas_sql_documentadas": 23852,
+  "colunas_sem_definicao_funcional_atual": [
+    "pontos_monitoramento.UNNAMED: 6"
+  ],
+  "sql_consulta_em_utc": "2026-11-17T12:25:07.479830+00:00",
+  "escopo_validacao": "Inventário de esquemas integral local/SQL visível; valores locais perfilados integralmente nas tabelas atuais; reconciliação Excel em quatro pontos, incluindo ANOR02300 e ARPE02800; SQL só metadados neste gerador; comparação integral dos valores SQL registrada separadamente em resultados_v2/verificacao_modelos_pipeline.json; histórico não reconstruído.",
+  "totais_manifesto": {
+    "arquivos_brutos": 659,
+    "medicoes": 1700130,
+    "coletas": 39750,
+    "pontos": 659,
+    "nitrogenio_total_medido": 4433,
+    "nitrogenio_total_soma_completa": 13519,
+    "nitrogenio_total_indeterminado": 21798,
+    "probabilidades_thm_publicadas": 0
+  },
+  "dependencias_instaladas": {
+    "pandas": "2.1.1",
+    "numpy": "1.26.0",
+    "pyarrow": "18.1.0",
+    "openpyxl": "3.1.5",
+    "sqlalchemy": "2.0.36",
+    "pyodbc": "5.2.0"
+  }
+}

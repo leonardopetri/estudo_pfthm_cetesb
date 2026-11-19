@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa Dinâmico CETESB SP — Qualidade da Água e Modelo THM (IPT)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-card: #0f172a;
+      --border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --risk-low: #22c55e;
+      --risk-mod: #eab308;
+      --risk-high: #f97316;
+      --risk-crit: #ef4444;
+      --no-data: #475569;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: #0b1120;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      z-index: 1000;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .brand span {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #1e293b;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-panel);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .control-group label {
+      color: var(--text-muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    select, input[type="text"] {
+      background: #0f172a;
+      color: var(--text-main);
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      outline: none;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+    button.btn {
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 5px 11px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button.btn:hover { background: #0369a1; }
+    button.btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    button.btn-secondary:hover { background: #475569; }
+
+    .timeline-bar {
+      background: #111c33;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      z-index: 999;
+    }
+    .play-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .period-badge {
+      min-width: 155px;
+      text-align: center;
+      background: #0f172a;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 5px 12px;
+      border-radius: 6px;
+    }
+    .slider-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+    .summary-pills {
+      display: flex;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .pill {
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .workspace {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+    #map {
+      flex: 1;
+      height: 100%;
+      background: #0b1120;
+    }
+    .map-legend {
+      position: absolute;
+      bottom: 20px;
+      left: 16px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      z-index: 800;
+      min-width: 210px;
+      backdrop-filter: blur(4px);
+    }
+    .map-legend h4 {
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: #e2e8f0;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0;
+      color: #cbd5e1;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+
+    .side-panel {
+      width: 540px;
+      max-width: 50vw;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 14px;
+    }
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 30px 20px;
+      line-height: 1.6;
+    }
+    .empty-state h3 {
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .station-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .station-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .station-code {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .station-sub {
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+    .meta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .tag {
+      background: #1e293b;
+      border: 1px solid #475569;
+      padding: 2px 7px;
+      border-radius: 4px;
+      color: #e2e8f0;
+    }
+    .tag-captacao {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: #38bdf8;
+      color: #7dd3fc;
+    }
+
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .kpi-box {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .kpi-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+    .kpi-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .kpi-sub {
+      font-size: 10px;
+      color: #cbd5e1;
+      margin-top: 2px;
+    }
+
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+    .param-table th, .param-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #1e293b;
+      text-align: left;
+    }
+    .param-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      background: #162032;
+    }
+    .param-table td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    .badge-risk {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .formula-box {
+      background: #131c31;
+      border: 1px dashed #38bdf8;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      color: #e2e8f0;
+      line-height: 1.5;
+      margin-top: 8px;
+      overflow-x: auto;
+    }
+    .chart-box {
+      height: 185px;
+      position: relative;
+    }
+    .history-list {
+      max-height: 190px;
+      overflow-y: auto;
+    }
+    .history-row {
+      cursor: pointer;
+    }
+    .history-row:hover {
+      background: rgba(56, 189, 248, 0.12);
+    }
+    .history-row.active-row {
+      background: rgba(56, 189, 248, 0.25);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Mapa Dinâmico CETESB SP — Risco de THM e Qualidade da Água</h1>
+      <span id="statusCounter">Carregando 659 estações...</span>
+    </div>
+    <div class="toolbar">
+      <div class="control-group">
+        <label for="metricSelect">Colorir por:</label>
+        <select id="metricSelect">
+          <option value="prob_risco_fq" disabled>Risco THM físico-químico — não validado</option>
+          <option value="prob_risco_espacial" disabled>Risco THM espacial — não validado</option>
+          <option value="pfthm" selected>PFTHM medido ou estimado IPT COD (µg/L)</option>
+          <option value="pfthm_observado">Somente PFTHM medido (µg/L)</option>
+          <option value="pfthm_ipt">PFTHM estimado IPT — seleção operacional (experimental)</option>
+          <option value="pfthm_ipt_1">PFTHM estimado — modelo 1 (COD + JFM)</option>
+          <option value="pfthm_ipt_2">PFTHM estimado — modelo 2 (COD quadrático)</option>
+          <option value="thm_eta">THM estimado pela reta histórica (µg/L) — não medido</option>
+          <option value="cot">Carbono Orgânico Total - COT (mg/L)</option>
+          <option value="iqa" disabled>IQA oficial — cálculo indisponível</option>
+          <option value="iet">IET - Índice de Estado Trófico</option>
+          <option value="od">Oxigênio Dissolvido - OD (mg/L)</option>
+          <option value="dbo">DBO 5,20 (mg/L)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="granularitySelect">Escala de Tempo:</label>
+        <select id="granularitySelect">
+          <option value="quarter" selected>Por Trimestre (2010-T1 a 2026-T4)</option>
+          <option value="month">Por Mês (Ano-Mês)</option>
+          <option value="year">Por Ano (2010 a 2026)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="captacaoFilter">Pontos CETESB:</label>
+        <select id="captacaoFilter">
+          <option value="all">Todos os Pontos (658)</option>
+          <option value="active_period">Apenas com medição no período</option>
+          <option value="captacao">Apenas pontos identificados como captação pública</option>
+          <option value="high_risk" disabled>Filtro de risco indisponível — modelos não validados</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="anaLayerSelect">ETAs / Captações ANA:</label>
+        <select id="anaLayerSelect">
+          <option value="all_ana" selected>Mostrar captações ANA e candidata próxima</option>
+          <option value="all_links">Mostrar candidatas ANA por proximidade (≤10 km)</option>
+          <option value="selected_only">Apenas candidata próxima ao ponto</option>
+          <option value="hide_ana">Ocultar Camada ANA</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="influenceModeSelect">Ilustração de proximidade (não representa abastecimento):</label>
+        <select id="influenceModeSelect">
+          <option value="mun_and_halo">Ilustração por proximidade municipal (sem validação)</option>
+          <option value="voronoi_sp">Ilustração por ponto mais próximo (sem validação)</option>
+          <option value="selected_zone">Raio ilustrativo do ponto selecionado</option>
+          <option value="radial_halos">Raios ilustrativos de 12 km</option>
+          <option value="none" selected>Sem extrapolação geográfica</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="searchStation">Buscar Ponto / Município:</label>
+        <input type="text" id="searchStation" list="stationsDatalist" placeholder="Ex: PDIZ00700, GUAR00900..." />
+        <datalist id="stationsDatalist"></datalist>
+      </div>
+    </div>
+  </header>
+
+  <div class="timeline-bar">
+    <div class="play-controls">
+      <button class="btn btn-secondary" id="btnPrev" title="Período Anterior">◀</button>
+      <button class="btn" id="btnPlay">▶ Play</button>
+      <button class="btn btn-secondary" id="btnNext" title="Próximo Período">▶</button>
+    </div>
+    <div class="period-badge" id="currentPeriodLabel">---</div>
+    <div class="slider-wrap">
+      <input type="range" id="timeSlider" min="0" max="0" value="0" step="1" />
+      <div class="slider-ticks">
+        <span id="tickStart">2010</span>
+        <span id="tickMid">Arraste a barra para rolar no tempo</span>
+        <span id="tickEnd">2026</span>
+      </div>
+    </div>
+    <div class="summary-pills">
+      <div class="pill" id="pillActiveCount">Com medição: 0</div>
+      <div class="pill" id="pillCritCount" style="border-color:#64748b;color:#cbd5e1;">Risco THM: indeterminado</div>
+      <div class="pill" id="pillMeanPFTHM">PFTHM Médio: -- µg/L</div>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div id="map"></div>
+    <div class="map-legend" id="mapLegend"></div>
+
+    <aside class="side-panel" id="sidePanel">
+      <div class="empty-state" id="emptyState">
+        <h3>Selecione um Ponto no Mapa</h3>
+        <p>Clique em qualquer estação de monitoramento no mapa (ou pesquise pelo código no topo) para inspecionar:</p>
+        <p style="margin-top:8px;font-size:12px;color:#cbd5e1;">
+          • PFTHM medido tem prioridade. As duas equações IPT COD são calculadas onde há COD exato; fora de seu ponto original são extrapolações experimentais. Contorno tracejado indica estimativa. Probabilidades de risco continuam indisponíveis;<br/>
+          • <b>Índices Ambientais</b> (IQA, IET, Saturação de OD, Classe CONAMA);<br/>
+          • Todos os <b>Parâmetros (X)</b> utilizados nas equações daquela medição;<br/>
+          • Gráficos de evolução histórica à medida que você rola no tempo.
+        </p>
+      </div>
+
+      <div id="stationContent" style="display:none; flex-direction:column; gap:12px;">
+        <div class="station-header">
+          <div class="station-title-row">
+            <div>
+              <div class="station-code" id="stCode">---</div>
+              <div class="station-sub" id="stName">---</div>
+            </div>
+            <div style="text-align:right;">
+              <label style="font-size:10px;color:var(--text-muted);display:block;">Data da Medição:</label>
+              <select id="stDateSelect" style="margin-top:2px;font-weight:700;"></select>
+            </div>
+          </div>
+          <div class="meta-tags" id="stMetaTags"></div>
+        </div>
+
+        <div class="section-card" style="border-color:#a855f7;">
+          <div class="section-title" style="color:#d8b4fe;">
+            <span>Captação candidata por proximidade (ANA) — conexão não comprovada</span>
+            <span id="stAnaBadge" class="badge-risk" style="background:#581c87;color:#f3e8ff;">---</span>
+          </div>
+          <div class="kpi-grid" id="stAnaKpis"></div>
+          <div class="formula-box" id="stAnaDetails" style="border-color:#a855f7;margin-top:8px;"></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">
+            <span>1. Resultado do Modelo de THM (IPT) na Medição</span>
+            <span id="stRiskBadge" class="badge-risk">---</span>
+          </div>
+          <div class="kpi-grid" id="stModelKpis"></div>
+          <div class="formula-box" id="stFormulaExplain"></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">
+            <span>2. Índices de Qualidade da Água na Medição</span>
+          </div>
+          <div class="kpi-grid" id="stIndicesKpis"></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">
+            <span>3. Parâmetros (Variáveis X) Usados na Medição</span>
+            <span id="stDateInfo" style="font-size:11px;color:var(--text-muted);text-transform:none;"></span>
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parâmetro / Covariável (X)</th>
+                <th>Papel no Modelo / Índice</th>
+                <th style="text-align:right;">Valor na Coleta</th>
+              </tr>
+            </thead>
+            <tbody id="stParamsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">
+            <span>4. Evolução Temporal do Ponto (PFTHM, COT e Risco)</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="stationChart"></canvas>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">
+            <span>5. Histórico Completo de Medições do Ponto (Clique para ver)</span>
+          </div>
+          <div class="history-list">
+            <table class="param-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Estação</th>
+                  <th style="text-align:right;">COT</th>
+                  <th style="text-align:right;">PFTHM</th>
+                  <th style="text-align:right;">IQA</th>
+                  <th style="text-align:right;">P(THM>100)</th>
+                </tr>
+              </thead>
+              <tbody id="stHistoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    let APP_DATA = null;
+    let STATION_MAP = {};
+    let MARKERS = {};
+    let HALO_MARKERS = {};
+    let ANA_MARKERS = {};
+    let ALL_LINK_LINES = [];
+    let ACTIVE_LINK_LINE = null;
+    let SELECTED_ZONE_CIRCLE = null;
+    let SELECTED_ETA_CIRCLE = null;
+    let MUN_FEATURES = [];
+    let SELECTED_CODE = null;
+    let SELECTED_STATION_HISTORY = [];
+    let SELECTED_MEASUREMENT_DATE = null;
+    let PLAY_TIMER = null;
+    let CHART_INSTANCE = null;
+
+    const map = L.map("map", {
+      center: [-22.45, -48.5],
+      zoom: 7,
+      preferCanvas: true
+    });
+
+    map.createPane("influencePane");
+    map.getPane("influencePane").style.zIndex = 320;
+    map.createPane("haloPane");
+    map.getPane("haloPane").style.zIndex = 350;
+    map.createPane("linkPane");
+    map.getPane("linkPane").style.zIndex = 410;
+    map.createPane("anaPane");
+    map.getPane("anaPane").style.zIndex = 430;
+    map.createPane("stationPane");
+    map.getPane("stationPane").style.zIndex = 460;
+
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      maxZoom: 18
+    }).addTo(map);
+
+    function normStr(s) {
+      if (!s) return "";
+      return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    }
+
+    function getFeatureCentroid(geom) {
+      let coords = [];
+      if (geom.type === "Polygon") {
+        coords = geom.coordinates[0];
+      } else if (geom.type === "MultiPolygon") {
+        let maxLen = 0;
+        for (const poly of geom.coordinates) {
+          if (poly[0].length > maxLen) {
+            maxLen = poly[0].length;
+            coords = poly[0];
+          }
+        }
+      }
+      if (!coords || coords.length === 0) return [-22.5, -48.5];
+      let sumLat = 0, sumLng = 0;
+      for (const pt of coords) {
+        sumLng += pt[0];
+        sumLat += pt[1];
+      }
+      return [sumLat / coords.length, sumLng / coords.length];
+    }
+
+    function approxDistKm(lat1, lng1, lat2, lng2) {
+      const dLat = (lat2 - lat1) * 111.1;
+      const dLng = (lng2 - lng1) * 111.1 * Math.cos((lat1 * Math.PI) / 180.0);
+      return Math.hypot(dLat, dLng);
+    }
+
+    fetch("https://raw.githubusercontent.com/tbrugz/geodata-br/master/geojson/geojs-35-mun.json")
+      .then(r => r.ok ? r.json() : null)
+      .then(geo => {
+        if (geo && geo.features) {
+          geo.features.forEach(feat => {
+            const [cLat, cLng] = getFeatureCentroid(feat.geometry);
+            const munName = feat.properties.name || feat.properties.description || "";
+            const munNorm = normStr(munName);
+            const layer = L.geoJSON(feat, {
+              pane: "influencePane",
+              style: {
+                color: "#334155",
+                weight: 0.7,
+                fillOpacity: 0.04,
+                fillColor: "#1e293b"
+              }
+            }).addTo(map);
+
+            const item = {
+              name: munName,
+              munNorm: munNorm,
+              lat: cLat,
+              lng: cLng,
+              layer: layer,
+              governedByCode: null
+            };
+
+            layer.on("click", () => {
+              if (item.governedByCode && STATION_MAP[item.governedByCode]) {
+                selectStation(item.governedByCode);
+              }
+            });
+
+            MUN_FEATURES.push(item);
+          });
+          if (APP_DATA) renderMapForCurrentTime();
+        }
+      })
+      .catch(() => {});
+
+    function fmt(v, digits = 2, suffix = "") {
+      if (v === null || v === undefined || Number.isNaN(v)) return "N/D";
+      return Number(v).toFixed(digits) + suffix;
+    }
+
+    function getPfthmValue(metric, snap) {
+      if (!snap) return null;
+      const index = {pfthm_observado: 3, pfthm_ipt: 19, pfthm_ipt_1: 23, pfthm_ipt_2: 24}[metric] ?? 2;
+      return snap[index] ?? null;
+    }
+
+    function getMetricColor(metric, snap) {
+      if (!snap) return "#334155";
+      const probFq = snap[1];
+      const pfthm = getPfthmValue(metric, snap);
+      const thmEta = snap[4];
+      const cot = snap[5];
+      const iqa = snap[7];
+      const iet = snap[8];
+      const od = snap[9];
+      const dbo = snap[10];
+      const probEsp = snap[18];
+
+      if (metric === "prob_risco_fq" || metric === "prob_risco") {
+        if (probFq === null) return "#475569";
+        if (probFq >= 0.65) return "#ef4444";
+        if (probFq >= 0.40) return "#f97316";
+        if (probFq >= 0.20) return "#eab308";
+        return "#22c55e";
+      }
+      if (metric === "prob_risco_espacial") {
+        if (probEsp === null || probEsp === undefined) return "#475569";
+        if (probEsp >= 0.65) return "#ef4444";
+        if (probEsp >= 0.40) return "#f97316";
+        if (probEsp >= 0.20) return "#eab308";
+        return "#22c55e";
+      }
+      if (metric.startsWith("pfthm")) {
+        if (pfthm === null) return "#475569";
+        if (pfthm > 400) return "#ef4444";
+        if (pfthm > 300) return "#f97316";
+        if (pfthm > 180) return "#eab308";
+        return "#22c55e";
+      }
+      if (metric === "thm_eta") {
+        if (thmEta === null) return "#475569";
+        if (thmEta > 100) return "#ef4444";
+        if (thmEta > 80) return "#f97316";
+        if (thmEta > 45) return "#eab308";
+        return "#22c55e";
+      }
+      if (metric === "cot") {
+        if (cot === null) return "#475569";
+        if (cot > 10) return "#ef4444";
+        if (cot > 5) return "#f97316";
+        if (cot > 3) return "#eab308";
+        return "#22c55e";
+      }
+      if (metric === "iqa") {
+        if (iqa === null) return "#475569";
+        if (iqa > 79) return "#38bdf8";
+        if (iqa > 51) return "#22c55e";
+        if (iqa > 36) return "#eab308";
+        if (iqa > 19) return "#f97316";
+        return "#ef4444";
+      }
+      if (metric === "iet") {
+        if (iet === null) return "#475569";
+        if (iet <= 47) return "#38bdf8";
+        if (iet <= 52) return "#22c55e";
+        if (iet <= 59) return "#eab308";
+        if (iet <= 63) return "#f97316";
+        return "#ef4444";
+      }
+      if (metric === "od") {
+        if (od === null) return "#475569";
+        if (od >= 6) return "#22c55e";
+        if (od >= 5) return "#eab308";
+        if (od >= 3) return "#f97316";
+        return "#ef4444";
+      }
+      if (metric === "dbo") {
+        if (dbo === null) return "#475569";
+        if (dbo <= 3) return "#22c55e";
+        if (dbo <= 5) return "#eab308";
+        if (dbo <= 10) return "#f97316";
+        return "#ef4444";
+      }
+      return "#38bdf8";
+    }
+
+    function updateLegend(metric) {
+      const box = document.getElementById("mapLegend");
+      const legends = {
+        prob_risco_fq: {
+          title: "Prob. Risco P(THM > 100) — Relatório Técnico IPT (Pág. 12)",
+          items: [
+            ["#ef4444", "Crítico (≥ 65% — Nível Município Crítico)"],
+            ["#f97316", "Alto (40% a 65% — Nível Chuvoso)"],
+            ["#eab308", "Moderado (20% a 40%)"],
+            ["#22c55e", "Baixo (< 20%)"],
+            ["#334155", "Sem medição no período selecionado"]
+          ]
+        },
+        prob_risco_espacial: {
+          title: "Prob. Risco P(THM > 100) — Apresentação IPT (Slide 40)",
+          items: [
+            ["#ef4444", "Crítico (≥ 65% — Nível Município Crítico)"],
+            ["#f97316", "Alto (40% a 65% — Nível Chuvoso)"],
+            ["#eab308", "Moderado (20% a 40%)"],
+            ["#22c55e", "Baixo (< 20%)"],
+            ["#334155", "Sem medição no período selecionado"]
+          ]
+        },
+        pfthm: {
+          title: "PFTHM: medição prioritária; estimativa IPT COD com contorno tracejado",
+          items: [
+            ["#ef4444", "> 400 µg/L (referência histórica de PFTHM; não é limite de THM na ETA)"],
+            ["#f97316", "300 a 400 µg/L"],
+            ["#eab308", "180 a 300 µg/L"],
+            ["#22c55e", "≤ 180 µg/L"],
+            ["#334155", "Sem medição no período"]
+          ]
+        },
+        thm_eta: {
+          title: "THM estimado pela reta histórica (µg/L); não medido",
+          items: [
+            ["#ef4444", "> 100 µg/L (Viola Portaria MS)"],
+            ["#f97316", "80 a 100 µg/L (Viola USEPA 80 µg/L)"],
+            ["#eab308", "45 a 80 µg/L (Moderado)"],
+            ["#22c55e", "≤ 45 µg/L (Baixo)"],
+            ["#334155", "Sem medição no período"]
+          ]
+        },
+        cot: {
+          title: "Carbono Orgânico Total - COT (mg/L)",
+          items: [
+            ["#ef4444", "> 10 mg/L (Muito Alto)"],
+            ["#f97316", "5 a 10 mg/L (Alto COT — Critério IPT)"],
+            ["#eab308", "3 a 5 mg/L (Moderado)"],
+            ["#22c55e", "≤ 3 mg/L (Baixo)"],
+            ["#334155", "Sem medição no período"]
+          ]
+        },
+        iqa: {
+          title: "IQA — Índice de Qualidade das Águas",
+          items: [
+            ["#38bdf8", "Ótima (> 79)"],
+            ["#22c55e", "Boa (52 a 79)"],
+            ["#eab308", "Regular (37 a 51)"],
+            ["#f97316", "Ruim (20 a 36)"],
+            ["#ef4444", "Péssima (≤ 19)"]
+          ]
+        },
+        iet: {
+          title: "IET — Índice de Estado Trófico",
+          items: [
+            ["#38bdf8", "Ultraoligotrófico (≤ 47)"],
+            ["#22c55e", "Oligotrófico (47 a 52)"],
+            ["#eab308", "Mesotrófico (52 a 59)"],
+            ["#f97316", "Eutrófico (59 a 63)"],
+            ["#ef4444", "Super/Hipereutrófico (> 63)"]
+          ]
+        },
+        od: {
+          title: "Oxigênio Dissolvido - OD (mg/L)",
+          items: [
+            ["#22c55e", "≥ 6,0 mg/L (Bom)"],
+            ["#eab308", "5,0 a 6,0 mg/L (Limite Classe 2)"],
+            ["#f97316", "3,0 a 5,0 mg/L (Hipóxia Moderada)"],
+            ["#ef4444", "< 3,0 mg/L (Crítico)"]
+          ]
+        },
+        dbo: {
+          title: "DBO (5, 20) (mg/L)",
+          items: [
+            ["#22c55e", "≤ 3,0 mg/L (Baixa carga orgânica)"],
+            ["#eab308", "3,0 a 5,0 mg/L (Limite Classe 2)"],
+            ["#f97316", "5,0 a 10,0 mg/L (Acima do padrão)"],
+            ["#ef4444", "> 10,0 mg/L (Poluição severa por esgoto)"]
+          ]
+        }
+      };
+      const cfg = legends[metric] || (metric.startsWith("pfthm") ? legends.pfthm : legends.prob_risco_fq);
+      if (metric === "pfthm_observado") cfg.title = "Somente PFTHM medido (µg/L)";
+      if (metric.startsWith("pfthm_ipt")) cfg.title = `PFTHM estimado — ${metric === "pfthm_ipt_1" ? "modelo 1" : metric === "pfthm_ipt_2" ? "modelo 2" : "seleção operacional"} (µg/L), experimental`;
+      box.innerHTML = `<h4>${cfg.title}</h4>` + cfg.items.map(
+        it => `<div class="legend-item"><span class="legend-dot" style="background:${it[0]}"></span><span>${it[1]}</span></div>`
+      ).join("") + `
+        <hr style="border:none;border-top:1px solid #334155;margin:6px 0;"/>
+        <div class="legend-item"><span class="legend-dot" style="background:#a855f7;border-color:#f3e8ff;"></span><span>Captações superficiais ANA</span></div>
+        <div class="legend-item"><span style="display:inline-block;width:14px;border-top:2px dashed #e879f9;"></span><span>Candidata próxima; conexão hídrica não comprovada</span></div>
+        <div class="legend-item"><span style="display:inline-block;width:12px;height:10px;background:rgba(56,189,248,0.28);border:1px solid #38bdf8;"></span><span>Zona de Influência (Fundo Pintado)</span></div>
+      `;
+    }
+
+    function updateInfluenceZones(metric, snaps) {
+      const infMode = document.getElementById("influenceModeSelect").value;
+      const selSt = SELECTED_CODE ? STATION_MAP[SELECTED_CODE] : null;
+      const selRel = SELECTED_CODE && APP_DATA.ana_relations ? APP_DATA.ana_relations[SELECTED_CODE] : null;
+      const selSnap = SELECTED_CODE ? snaps[SELECTED_CODE] : null;
+      const selColor = selSnap ? getMetricColor(metric, selSnap) : "#38bdf8";
+      const selMunNorm = selSt ? normStr(selSt.municipio) : "";
+      const selEtaMunNorm = selRel ? normStr(relMun(selRel)) : "";
+
+      function relMun(r) {
+        return r && r.municipio_ana ? r.municipio_ana : "";
+      }
+
+      if (SELECTED_ZONE_CIRCLE) {
+        map.removeLayer(SELECTED_ZONE_CIRCLE);
+        SELECTED_ZONE_CIRCLE = null;
+      }
+      if (SELECTED_ETA_CIRCLE) {
+        map.removeLayer(SELECTED_ETA_CIRCLE);
+        SELECTED_ETA_CIRCLE = null;
+      }
+
+      if (selSt && infMode !== "none") {
+        SELECTED_ZONE_CIRCLE = L.circle([selSt.lat, selSt.lng], {
+          pane: "haloPane",
+          radius: 14000,
+          color: selColor,
+          weight: 2.0,
+          dashArray: "5, 5",
+          fillColor: selColor,
+          fillOpacity: 0.22,
+          interactive: false
+        }).addTo(map);
+
+        if (selRel) {
+          SELECTED_ETA_CIRCLE = L.circle([selRel.latitude_ana, selRel.longitude_ana], {
+            pane: "haloPane",
+            radius: 10000,
+            color: "#e879f9",
+            weight: 1.8,
+            dashArray: "4, 4",
+            fillColor: selColor,
+            fillOpacity: 0.18,
+            interactive: false
+          }).addTo(map);
+        }
+      }
+
+      for (const st of APP_DATA.stations) {
+        const code = st.codigo_ponto;
+        const halo = HALO_MARKERS[code];
+        if (!halo) continue;
+        const snap = snaps[code];
+        if (infMode === "radial_halos" && snap) {
+          const c = getMetricColor(metric, snap);
+          halo.setStyle({
+            fillColor: c,
+            fillOpacity: code === SELECTED_CODE ? 0.35 : 0.18,
+            color: c,
+            weight: code === SELECTED_CODE ? 1.5 : 0.5,
+            opacity: 0.5
+          });
+        } else {
+          halo.setStyle({ fillOpacity: 0, opacity: 0 });
+        }
+      }
+
+      if (MUN_FEATURES.length === 0) return;
+
+      const activeStations = [];
+      for (const st of APP_DATA.stations) {
+        const snap = snaps[st.codigo_ponto];
+        if (snap) {
+          activeStations.push({
+            st: st,
+            snap: snap,
+            color: getMetricColor(metric, snap),
+            munNorm: normStr(st.municipio)
+          });
+        }
+      }
+
+      for (const mf of MUN_FEATURES) {
+        if (infMode === "none" || infMode === "radial_halos") {
+          mf.governedByCode = null;
+          mf.layer.setStyle({
+            color: "#334155",
+            weight: 0.6,
+            fillColor: "#1e293b",
+            fillOpacity: 0.03
+          });
+          continue;
+        }
+
+        const isSelMun = selSt && (
+          mf.munNorm === selMunNorm ||
+          (selEtaMunNorm && mf.munNorm === selEtaMunNorm) ||
+          approxDistKm(mf.lat, mf.lng, selSt.lat, selSt.lng) <= 18.0 ||
+          (selRel && approxDistKm(mf.lat, mf.lng, selRel.latitude_ana, selRel.longitude_ana) <= 15.0)
+        );
+
+        if (infMode === "selected_zone") {
+          if (isSelMun) {
+            mf.governedByCode = SELECTED_CODE;
+            mf.layer.setStyle({
+              color: "#f8fafc",
+              weight: 1.8,
+              fillColor: selColor,
+              fillOpacity: 0.42
+            });
+          } else {
+            mf.governedByCode = null;
+            mf.layer.setStyle({
+              color: "#334155",
+              weight: 0.5,
+              fillColor: "#0f172a",
+              fillOpacity: 0.04
+            });
+          }
+          continue;
+        }
+
+        let best = null;
+        let bestScore = 1e9;
+        for (const act of activeStations) {
+          let d = approxDistKm(mf.lat, mf.lng, act.st.lat, act.st.lng);
+          if (act.munNorm === mf.munNorm) d -= 12.0;
+          if (d < bestScore) {
+            bestScore = d;
+            best = act;
+          }
+        }
+
+        const maxDist = infMode === "voronoi_sp" ? 9999.0 : 32.0;
+        if (best && bestScore <= maxDist) {
+          mf.governedByCode = best.st.codigo_ponto;
+          mf.layer.setStyle({
+            color: isSelMun ? "#f8fafc" : best.color,
+            weight: isSelMun ? 2.0 : 0.7,
+            fillColor: isSelMun ? selColor : best.color,
+            fillOpacity: isSelMun ? 0.48 : 0.26
+          });
+        } else if (isSelMun) {
+          mf.governedByCode = SELECTED_CODE;
+          mf.layer.setStyle({
+            color: "#f8fafc",
+            weight: 2.0,
+            fillColor: selColor,
+            fillOpacity: 0.45
+          });
+        } else {
+          mf.governedByCode = null;
+          mf.layer.setStyle({
+            color: "#334155",
+            weight: 0.5,
+            fillColor: "#1e293b",
+            fillOpacity: 0.04
+          });
+        }
+      }
+    }
+
+    function updateAnaLayers() {
+      if (!APP_DATA || !APP_DATA.ana_etas) return;
+      const mode = document.getElementById("anaLayerSelect").value;
+      const selRel = SELECTED_CODE && APP_DATA.ana_relations ? APP_DATA.ana_relations[SELECTED_CODE] : null;
+      const selAnaId = selRel ? selRel.id_captacao_ana : null;
+
+      for (const eta of APP_DATA.ana_etas) {
+        const m = ANA_MARKERS[eta.id_captacao_ana];
+        if (!m) continue;
+        const isLinked = (eta.id_captacao_ana === selAnaId);
+        let show = true;
+        if (mode === "hide_ana") show = false;
+        if (mode === "selected_only" && !isLinked) show = false;
+
+        if (!show) {
+          m.setStyle({ opacity: 0, fillOpacity: 0, radius: 1 });
+        } else {
+          m.setStyle({
+            radius: isLinked ? 8.5 : 4.2,
+            fillColor: isLinked ? "#e879f9" : "#a855f7",
+            fillOpacity: isLinked ? 0.95 : 0.72,
+            color: isLinked ? "#ffffff" : "#3b0764",
+            weight: isLinked ? 2.5 : 1.0,
+            opacity: 1
+          });
+          if (isLinked) m.bringToFront();
+        }
+      }
+
+      for (const ln of ALL_LINK_LINES) {
+        if (mode === "all_links") {
+          ln.setStyle({ opacity: 0.45 });
+        } else {
+          ln.setStyle({ opacity: 0 });
+        }
+      }
+
+      if (ACTIVE_LINK_LINE) {
+        map.removeLayer(ACTIVE_LINK_LINE);
+        ACTIVE_LINK_LINE = null;
+      }
+
+      if (selRel && mode !== "hide_ana") {
+        ACTIVE_LINK_LINE = L.polyline(
+          [
+            [selRel.latitude_cetesb, selRel.longitude_cetesb],
+            [selRel.latitude_ana, selRel.longitude_ana]
+          ],
+          {
+            pane: "linkPane",
+            color: "#e879f9",
+            weight: 2.8,
+            dashArray: "6, 5",
+            opacity: 0.95
+          }
+        ).addTo(map);
+      }
+    }
+
+    function getCurrentPeriodKey() {
+      const gran = document.getElementById("granularitySelect").value;
+      const periods = APP_DATA.periods[gran];
+      const idx = Number(document.getElementById("timeSlider").value);
+      return periods[idx] || periods[periods.length - 1];
+    }
+
+    function renderMapForCurrentTime() {
+      if (!APP_DATA) return;
+      const gran = document.getElementById("granularitySelect").value;
+      const periodKey = getCurrentPeriodKey();
+      const metric = document.getElementById("metricSelect").value;
+      const filterMode = document.getElementById("captacaoFilter").value;
+      const snaps = APP_DATA.snapshots[gran][periodKey] || {};
+
+      document.getElementById("currentPeriodLabel").textContent = `Período: ${periodKey}`;
+      updateLegend(metric);
+
+      let activeCount = 0;
+      let critCount = 0;
+      let pfthmSum = 0;
+      let pfthmCnt = 0;
+
+      for (const st of APP_DATA.stations) {
+        const code = st.codigo_ponto;
+        const marker = MARKERS[code];
+        const snap = snaps[code];
+        const isSelected = (code === SELECTED_CODE);
+
+        if (snap) {
+          activeCount++;
+          if (snap[1] !== null && snap[1] >= 0.40) critCount++;
+          const pfthmValue = getPfthmValue(metric, snap);
+          if (pfthmValue !== null) { pfthmSum += pfthmValue; pfthmCnt++; }
+        }
+
+        let visible = true;
+        if (filterMode === "active_period" && !snap) visible = false;
+        if (filterMode === "captacao" && st.captacao_bin !== 1) visible = false;
+        if (filterMode === "high_risk" && (!snap || snap[1] === null || snap[1] < 0.40)) visible = false;
+
+        if (!visible && !isSelected) {
+          marker.setStyle({ opacity: 0, fillOpacity: 0, radius: 1 });
+          continue;
+        }
+
+        const color = getMetricColor(metric, snap);
+        const radius = isSelected ? 10 : (snap ? (st.captacao_bin === 1 ? 7 : 5.5) : 3.2);
+        const fillOpacity = isSelected ? 1.0 : (snap ? 0.88 : 0.25);
+        const strokeColor = isSelected ? "#ffffff" : (st.captacao_bin === 1 ? "#38bdf8" : "#0f172a");
+        const strokeWeight = isSelected ? 3 : (st.captacao_bin === 1 ? 1.5 : 0.8);
+
+        marker.setStyle({
+          radius: radius,
+          fillColor: color,
+          fillOpacity: fillOpacity,
+          color: strokeColor,
+          weight: strokeWeight,
+          opacity: snap || isSelected ? 1 : 0.35,
+          dashArray: snap && (metric.startsWith("pfthm_ipt") || (["pfthm", "thm_eta"].includes(metric) && snap[20] === "Estimado IPT COD")) ? "3 3" : null
+        });
+
+        if (isSelected) {
+          marker.bringToFront();
+        }
+      }
+
+      document.getElementById("pillActiveCount").textContent = `Com medição no período: ${activeCount} / ${APP_DATA.stations.length}`;
+      document.getElementById("pillCritCount").textContent = "Risco THM: indeterminado — modelos não validados";
+      const pfthmLabel = metric === "pfthm_observado" ? "medido" : metric === "pfthm_ipt_1" ? "modelo 1" : metric === "pfthm_ipt_2" ? "modelo 2" : metric === "pfthm_ipt" ? "estimado operacional" : "medido/estimado";
+      document.getElementById("pillMeanPFTHM").textContent = `PFTHM médio (${pfthmLabel}, n=${pfthmCnt}): ${pfthmCnt ? (pfthmSum / pfthmCnt).toFixed(1) : "--"} µg/L`;
+
+      updateInfluenceZones(metric, snaps);
+      updateAnaLayers();
+
+      if (SELECTED_CODE && SELECTED_STATION_HISTORY.length > 0) {
+        syncSelectedStationToPeriod(periodKey, gran);
+      }
+    }
+
+    function measurementKey(rec) {
+      return `${rec.data_coleta} ${rec.hora_coleta || "--:--"}`;
+    }
+
+    function syncSelectedStationToPeriod(periodKey, gran) {
+      let match = null;
+      for (const rec of SELECTED_STATION_HISTORY) {
+        if (gran === "quarter" && rec.period_quarter === periodKey) match = rec;
+        else if (gran === "month" && rec.period_month === periodKey) match = rec;
+        else if (gran === "year" && rec.period_year === periodKey) match = rec;
+      }
+      if (!match) {
+        document.getElementById("stationContent").style.display = "none";
+        const empty = document.getElementById("emptyState");
+        empty.style.display = "block";
+        empty.textContent = "Não há coleta deste ponto no período selecionado. Escolha outro período.";
+        return;
+      }
+      if (match) {
+        document.getElementById("emptyState").style.display = "none";
+        document.getElementById("stationContent").style.display = "flex";
+        SELECTED_MEASUREMENT_DATE = measurementKey(match);
+        document.getElementById("stDateSelect").value = measurementKey(match);
+        renderSelectedMeasurementDetails(match);
+      }
+    }
+
+    function riskBadgeStyle(prob) {
+      if (prob === null || prob === undefined) return "background:#334155;color:#e2e8f0;";
+      if (prob >= 0.65) return "background:#ef4444;color:#fff;";
+      if (prob >= 0.40) return "background:#f97316;color:#fff;";
+      if (prob >= 0.20) return "background:#eab308;color:#0f172a;";
+      return "background:#22c55e;color:#0f172a;";
+    }
+
+    function renderSelectedMeasurementDetails(rec) {
+      const st = STATION_MAP[SELECTED_CODE];
+      document.getElementById("stCode").textContent = `${st.codigo_ponto} — ${st.municipio || ""}`;
+      document.getElementById("stName").textContent = `${st.sistema_hidrico || ""} (${st.lat}, ${st.lng} | Alt: ${st.altitude_m ?? "N/D"}m)`;
+
+      const tagsHtml = [
+        `<span class="tag">${st.classe || "Classe N/D"}</span>`,
+        st.captacao_bin === 1 ? `<span class="tag tag-captacao">Ponto de Captação Pública</span>` : `<span class="tag">Rede de Monitoramento</span>`,
+        `<span class="tag">Estação: ${rec.estacao_hidrologica || "N/D"} (${rec.period_quarter})</span>`,
+        `<span class="tag">Chuva 24h: ${rec.chuva_24h === 1 ? "SIM" : "NÃO"}</span>`
+      ].join("");
+      document.getElementById("stMetaTags").innerHTML = tagsHtml;
+
+      const rel = (APP_DATA.ana_relations && APP_DATA.ana_relations[SELECTED_CODE]) ? APP_DATA.ana_relations[SELECTED_CODE] : null;
+      if (rel) {
+        document.getElementById("stAnaBadge").textContent = `${rel.nivel_vinculo} (${fmt(rel.distancia_km, 2, " km")})`;
+        const popStr = rel.populacao_atendida_ana ? Number(rel.populacao_atendida_ana).toLocaleString("pt-BR") + " hab." : "N/D";
+        const vzStr = rel.vazao_max_projeto_l_s ? `${fmt(rel.vazao_max_projeto_l_s, 1, " L/s")}` : (rel.vazao_media_operacao_l_s ? `${fmt(rel.vazao_media_operacao_l_s, 1, " L/s")}` : "N/D");
+        document.getElementById("stAnaKpis").innerHTML = `
+          <div class="kpi-box">
+            <div class="kpi-label">Candidata por proximidade (ANA)</div>
+            <div class="kpi-val" style="color:#e879f9;font-size:13.5px;">${rel.nome_eta_ana || "N/D"}</div>
+            <div class="kpi-sub">Município: <b>${rel.municipio_ana || "N/D"}</b></div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-label">Captação / Manancial ANA</div>
+            <div class="kpi-val" style="font-size:13px;">${rel.nome_captacao_ana || "N/D"}</div>
+            <div class="kpi-sub">${rel.manancial_ana || rel.nome_sistema_ana || "N/D"}</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-label">Vazão / Pop. Atendida</div>
+            <div class="kpi-val" style="font-size:13.5px;">${vzStr}</div>
+            <div class="kpi-sub">Pop.: <b>${popStr}</b></div>
+          </div>
+        `;
+        document.getElementById("stAnaDetails").innerHTML =
+          `• <b>Tipo de Tratamento da ETA:</b> ${rel.tipo_tratamento_eta || "N/D"}<br/>` +
+          `• <b>Sistema de Abastecimento ANA:</b> ${rel.nome_sistema_ana || "N/D"} | <b>Segurança Hídrica:</b> ${rel.vulnerabilidade_quantitativa_ana || "N/D"} (${rel.avaliacao_sistema_ana || "N/D"})<br/>` +
+          `• <b>ETAs/Captações da ANA em raio de 15 km (${rel.qtd_etas_raio_15km}):</b> ${rel.etas_raio_15km_resumo || "Nenhuma no raio de 15 km"}`;
+      } else {
+        document.getElementById("stAnaBadge").textContent = "Sem vínculo";
+        document.getElementById("stAnaKpis").innerHTML = "";
+        document.getElementById("stAnaDetails").innerHTML = "Nenhuma candidata identificada em até 15 km; vínculo hídrico não avaliado.";
+      }
+
+      const activeMetric = document.getElementById("metricSelect").value;
+      const activeProb = activeMetric === "prob_risco_espacial"
+        ? rec.prob_risco_thm_espacial_ipt
+        : rec.prob_risco_thm_fisico_quimico_ipt;
+
+      const badge = document.getElementById("stRiskBadge");
+      let badgeLabel = "Risco indeterminado — modelos não validados";
+      if (activeProb !== null && activeProb !== undefined) {
+        if (activeProb >= 0.65) badgeLabel = "Crítico (≥65% - Município Crítico IPT)";
+        else if (activeProb >= 0.40) badgeLabel = "Alto (40-65% - Período Chuvoso IPT)";
+        else if (activeProb >= 0.20) badgeLabel = "Moderado (20-40%)";
+        else badgeLabel = "Baixo (<20%)";
+      }
+      badge.textContent = badgeLabel;
+      badge.setAttribute("style", riskBadgeStyle(activeProb));
+
+      const probEsp = rec.prob_risco_thm_espacial_ipt !== null ? (rec.prob_risco_thm_espacial_ipt * 100).toFixed(1) + "%" : "N/D";
+      const probFq = rec.prob_risco_thm_fisico_quimico_ipt !== null ? (rec.prob_risco_thm_fisico_quimico_ipt * 100).toFixed(1) + "%" : "N/D";
+
+      const modelEvaluation = APP_DATA.avaliacao_modelos_ipt?.modelos?.[rec.codigo_ponto]?.teste_todos_resultados_brutos;
+      const evaluationText = modelEvaluation?.n
+        ? `Teste desde 2013: n=${modelEvaluation.n}; MAE=${fmt(modelEvaluation.mae_ug_l, 1)} µg/L; R²=${fmt(modelEvaluation.r2, 3)}. Desempenho não aprovado para decisão regulatória.`
+        : "Sem avaliação temporal disponível para este ponto.";
+      document.getElementById("stModelKpis").innerHTML = `
+        <div class="kpi-box">
+          <div class="kpi-label">Logit Relatório IPT (Pág. 12)</div>
+          <div class="kpi-val" style="color:#94a3b8">${probFq}</div>
+          <div class="kpi-sub">Logit Físico-Químico (η = ${fmt(rec.logit_modelo_fisico_quimico_ipt, 2)})</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">Logit Apresentação IPT (Sl. 40)</div>
+          <div class="kpi-val" style="color:#94a3b8">${probEsp}</div>
+          <div class="kpi-sub">Logit Espacial/IQA (η = ${fmt(rec.logit_modelo_espacial_ipt, 2)})</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">PFTHM selecionado / THM estimado histórico</div>
+          <div class="kpi-val">${fmt(rec.pfthm_final_ug_l, 1)} / ${fmt(rec.thm_eta_final_ug_l, 1)} <span style="font-size:11px">µg/L</span></div>
+          <div class="kpi-sub">Origem: ${rec.origem_pfthm}. THM não medido na ETA.</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">PFTHM IPT — regra operacional (experimental)</div>
+          <div class="kpi-val">${fmt(rec.pfthm_predito_ipt_ug_l, 2, " µg/L")}</div>
+          <div class="kpi-sub">${rec.modelo_pfthm_ipt}<br/>${rec.aplicacao_modelo_pfthm}<br/>${rec.status_modelo_pfthm}<br/>${evaluationText}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">Modelo 1 / Modelo 2 — PFTHM (µg/L)</div>
+          <div class="kpi-val">${fmt(rec.pfthm_modelo_1_ipt_ug_l, 2)} / ${fmt(rec.pfthm_modelo_2_ipt_ug_l, 2)}</div>
+          <div class="kpi-sub">Modelo 1 originado em ANOR02300; modelo 2 em ARPE02800. Aplicação em outro ponto é extrapolação não validada.</div>
+        </div>
+      `;
+
+      document.getElementById("stFormulaExplain").innerHTML =
+        `<b>Limites de interpretação desta coleta:</b><br/>` +
+        `• ANOR02300: PFTHM = 235 + 15,9 × COD + 282 × JFM. ARPE02800: PFTHM = −1983 + 669 × COD − 43,3 × COD² (DOC² interpretado como COD²).<br/>` +
+        `• Ambas aplicadas em todos os pontos com COD exato (mg/L), gerando PFTHM em µg/L. Fora do ponto original, extrapolação experimental não validada. JFM = 1 em janeiro–março; 0 nos demais meses. Resultados negativos são rejeitados, sem truncamento em zero.<br/>` +
+        `• Seleção operacional: modelo 2 em ARPE02800; modelo 1 nos demais. Não há média nem troca de modelo quando uma previsão é rejeitada. A medição de PFTHM continua prioritária.<br/>` +
+        `• Resultados brutos: modelo 1 = ${fmt(rec.pfthm_modelo_1_ipt_bruto_ug_l, 2)}; modelo 2 = ${fmt(rec.pfthm_modelo_2_ipt_bruto_ug_l, 2)} µg/L.<br/>` +
+        `• Resultado bruto da equação: ${fmt(rec.pfthm_ipt_bruto_ug_l, 2, " µg/L")}. Medição de PFTHM tem prioridade. ${rec.status_thm_eta}.<br/>` +
+        `• Estas regressões não calculam probabilidade de risco THM; os modelos logísticos continuam indisponíveis.<br/>` +
+        `• THM = max(0, (PFTHM − 21,334) / 4,4) é uma estimativa pela relação histórica, não uma medição na ETA.<br/>` +
+        `• Valores censurados e ausentes não são tratados como medições exatas. O mapa não comprova potabilidade nem conexão entre ponto e ETA.`;
+
+      document.getElementById("stIndicesKpis").innerHTML = `
+        <div class="kpi-box">
+          <div class="kpi-label">IQA (Qualidade das Águas)</div>
+          <div class="kpi-val">${fmt(rec.iqa_estimado, 1)}</div>
+          <div class="kpi-sub">Cálculo oficial indisponível; aproximação não utilizada nos modelos.</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">IET (Estado Trófico)</div>
+          <div class="kpi-val">${fmt(rec.iet_medio, 1)}</div>
+          <div class="kpi-sub">Classificação: <b>${rec.classificacao_iet || "N/D"}</b></div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">Saturação de OD / CONAMA</div>
+          <div class="kpi-val">${fmt(rec.od_percentual_saturacao, 1, "%")}</div>
+          <div class="kpi-sub">${st.classe || "Classe não informada"} | Triagem CONAMA parcial por amostra</div>
+        </div>
+      `;
+
+      document.getElementById("stDateInfo").textContent = `Coleta: ${rec.data_coleta} ${rec.hora_coleta || ""}`;
+
+      const paramRows = [
+        ["Carbono Orgânico Total (COT)", "Precursor Orgânico / Flag Alto COT (>5 mg/L)", fmt(rec.cot_observado_mg_l, 2, " mg/L") + (rec.flag_alto_cot_5mgl === 1 ? " ⚠️ (>5)" : "")],
+        ["Carbono Orgânico Dissolvido (COD)", "Precursor Direto de THM (Medido / Utilizado)", `${fmt(rec.cod_observado_mg_l, 2, " mg/L")} / ${fmt(rec.cod_utilizado_mg_l, 2, " mg/L")}`],
+        ["Absorbância UV254", "Não exigida pelas duas equações COD; necessária para o logístico físico-químico", "Indisponível"],
+        ["Cor Verdadeira / Coloração", "Indicador Óptico de Substâncias Húmicas", `${fmt(rec.cor_verdadeira_mg_pt_l, 1, " mg Pt/L")} (${rec.coloracao_texto || "N/D"})`],
+        ["Chuva nas últimas 24h", "Observação em campo", rec.chuva_24h == null ? "N/D" : (rec.chuva_24h === 1 ? "Sim" : "Não")],
+        ["Trimestre Sazonal (JFM/AMJ/JAS/OND)", "Dummies Sazonais nos Modelos Logit e PFTHM", `T${rec.trimestre} (${rec.estacao_hidrologica || ""})`],
+        ["DBO (5, 20) (Medida / Utilizada)", "Carga Orgânica Biodegradável + IQA + Logit FQ", `${fmt(rec.dbo_mg_l, 2, " mg/L")} (Util.: ${fmt(rec.dbo_utilizada_mg_l, 2, " mg/L")})`],
+        ["Oxigênio Dissolvido (OD)", "Subíndice IQA (peso 0.17) + Logit FQ", `${fmt(rec.od_mg_l, 2, " mg/L")} (OD²=${fmt(rec.od_quadrado, 2)})`],
+        ["Fósforo Total", "Subíndice IQA (peso 0.10) + IET + Logit FQ", `${fmt(rec.fosforo_total_mg_l, 3, " mg/L")}`],
+        ["pH da Água", "Subíndice IQA (peso 0.12) + Cinética de Cloração", `${fmt(rec.ph, 2, " U.pH")}`],
+        ["Temperatura da Água / Ar", "Subíndice IQA + Saturação OD + Logit FQ", `${fmt(rec.temperatura_agua_c, 1, " °C")} / Ar: ${fmt(rec.temperatura_ar_c, 1, " °C")}`],
+        ["Turbidez", "Subíndice IQA (peso 0.08) + Arraste de Sólidos", `${fmt(rec.turbidez_unt, 2, " UNT")}`],
+        ["Escherichia coli", "Subíndice Microbiológico IQA (peso 0.15)", `${fmt(rec.ecoli_ufc_100ml, 0, " UFC/100mL")}`],
+        ["Nitrogênio Total / Amoniacal / Nitrato", `Origem NT: ${rec.origem_nitrogenio_total || "Indeterminada"}`, `NT: ${fmt(rec.nitrogenio_total_mg_l, 2)} | NH4: ${fmt(rec.nitrogenio_amoniacal_mg_l, 2)} | NO3: ${fmt(rec.nitrato_mg_l, 2)} mg/L`],
+        ["Sólido Total / Dissolvido / Suspenso", "Subíndice IQA (peso 0.08) + Sólidos", `ST: ${fmt(rec.solido_total_mg_l, 1)} | SDT: ${fmt(rec.solido_dissolvido_total_mg_l, 1)} | SST: ${fmt(rec.solido_suspenso_estimado_mg_l, 1)} mg/L`],
+        ["Clorofila-a", "Cálculo do Índice de Estado Trófico (IET)", `${fmt(rec.clorofila_a_ug_l, 2, " µg/L")}`],
+        ["Metais Organolépticos (Al / Fe / Mn)", "Grupo SO (Índice IAP / ISTO)", `Al: ${fmt(rec.aluminio_dissolvido_mg_l, 3)} | Fe: ${fmt(rec.ferro_dissolvido_mg_l, 3)} | Mn: ${fmt(rec.manganes_total_mg_l, 3)} mg/L`],
+        ["Latitude × Longitude", "Covariáveis Espaciais Logit IPT", `${fmt(rec.latitude_decimal, 4)} × ${fmt(rec.longitude_decimal, 4)} = ${fmt(rec.lat_x_long, 2)}`]
+      ];
+
+      document.getElementById("stParamsBody").innerHTML = paramRows.map(
+        r => `<tr><td><b>${r[0]}</b></td><td style="color:#94a3b8">${r[1]}</td><td class="num">${r[2]}</td></tr>`
+      ).join("");
+
+      document.querySelectorAll(".history-row").forEach(tr => {
+        tr.classList.toggle("active-row", tr.dataset.date === measurementKey(rec));
+      });
+
+      updateStationChart(measurementKey(rec));
+    }
+
+    function updateStationChart(activeDate) {
+      const ctx = document.getElementById("stationChart").getContext("2d");
+      const labels = SELECTED_STATION_HISTORY.map(measurementKey);
+      const pfthmData = SELECTED_STATION_HISTORY.map(r => r.pfthm_observado_ug_l);
+      const pfthmEstimated = SELECTED_STATION_HISTORY.map(r => r.pfthm_modelo_1_ipt_ug_l);
+      const pfthmEstimated2 = SELECTED_STATION_HISTORY.map(r => r.pfthm_modelo_2_ipt_ug_l);
+      const riskFqData = SELECTED_STATION_HISTORY.map(r => r.prob_risco_thm_fisico_quimico_ipt !== null ? +(r.prob_risco_thm_fisico_quimico_ipt * 100).toFixed(1) : null);
+      const riskEspData = SELECTED_STATION_HISTORY.map(r => r.prob_risco_thm_espacial_ipt !== null ? +(r.prob_risco_thm_espacial_ipt * 100).toFixed(1) : null);
+      const pointRadii = labels.map(d => d === activeDate ? 6 : 2.5);
+
+      if (CHART_INSTANCE) {
+        CHART_INSTANCE.destroy();
+      }
+
+      CHART_INSTANCE = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "PFTHM medido (µg/L)",
+              data: pfthmData,
+              borderColor: "#38bdf8",
+              backgroundColor: "rgba(56,189,248,0.12)",
+              yAxisID: "y",
+              tension: 0.25,
+              pointRadius: pointRadii
+            },
+            {
+              label: "PFTHM modelo 1 — experimental (µg/L)",
+              data: pfthmEstimated,
+              borderColor: "#fbbf24",
+              borderDash: [5, 5],
+              yAxisID: "y",
+              tension: 0,
+              pointRadius: pointRadii
+            },
+            {
+              label: "PFTHM modelo 2 — experimental (µg/L)",
+              data: pfthmEstimated2,
+              borderColor: "#c084fc",
+              borderDash: [3, 3],
+              yAxisID: "y",
+              tension: 0,
+              pointRadius: pointRadii
+            },
+            {
+              label: "Risco Relatório IPT (%)",
+              data: riskFqData,
+              borderColor: "#f97316",
+              backgroundColor: "rgba(249,115,22,0.12)",
+              yAxisID: "y1",
+              tension: 0.25,
+              pointRadius: pointRadii
+            },
+            {
+              label: "Risco Apresentação IPT (%)",
+              data: riskEspData,
+              borderColor: "#a855f7",
+              backgroundColor: "rgba(168,85,247,0.12)",
+              yAxisID: "y1",
+              borderDash: [4, 3],
+              tension: 0.25,
+              pointRadius: pointRadii
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { labels: { color: "#cbd5e1", font: { size: 11 } } }
+          },
+          scales: {
+            x: { ticks: { color: "#94a3b8", maxTicksLimit: 8, font: { size: 10 } }, grid: { color: "#1e293b" } },
+            y: { position: "left", title: { display: true, text: "PFTHM (µg/L)", color: "#38bdf8", font: { size: 10 } }, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#1e293b" } },
+            y1: { position: "right", min: 0, max: 100, title: { display: true, text: "Risco (%)", color: "#f97316", font: { size: 10 } }, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { drawOnChartArea: false } }
+          },
+          onClick: (evt, elements) => {
+            if (elements && elements.length > 0) {
+              const idx = elements[0].index;
+              const rec = SELECTED_STATION_HISTORY[idx];
+              if (rec) {
+                document.getElementById("stDateSelect").value = measurementKey(rec);
+                renderSelectedMeasurementDetails(rec);
+              }
+            }
+          }
+        }
+      });
+    }
+
+    async function selectStation(code) {
+      if (!STATION_MAP[code]) return;
+      SELECTED_CODE = code;
+      document.getElementById("emptyState").style.display = "none";
+      document.getElementById("stationContent").style.display = "flex";
+
+      const resp = await fetch(`/api/station/${encodeURIComponent(code)}`);
+      const data = await resp.json();
+      SELECTED_STATION_HISTORY = data.measurements || [];
+
+      const dateSelect = document.getElementById("stDateSelect");
+      dateSelect.innerHTML = SELECTED_STATION_HISTORY.map(
+        r => `<option value="${measurementKey(r)}">${measurementKey(r)} (${r.estacao_hidrologica || ""})</option>`
+      ).join("");
+
+      const histBody = document.getElementById("stHistoryBody");
+      histBody.innerHTML = SELECTED_STATION_HISTORY.slice().reverse().map(r => {
+        const pStr = r.prob_risco_thm_fisico_quimico_ipt !== null ? (r.prob_risco_thm_fisico_quimico_ipt * 100).toFixed(1) + "%" : "N/D";
+        return `<tr class="history-row" data-date="${measurementKey(r)}">
+          <td>${measurementKey(r)}</td>
+          <td>${r.estacao_hidrologica || "-"}</td>
+          <td class="num">${fmt(r.cot_observado_mg_l, 2)}</td>
+          <td class="num">${fmt(r.pfthm_final_ug_l, 1)}</td>
+          <td class="num">${fmt(r.iqa_estimado, 1)}</td>
+          <td class="num">${pStr}</td>
+        </tr>`;
+      }).join("");
+
+      histBody.querySelectorAll(".history-row").forEach(tr => {
+        tr.addEventListener("click", () => {
+          const d = tr.dataset.date;
+          const found = SELECTED_STATION_HISTORY.find(x => measurementKey(x) === d);
+          if (found) {
+            dateSelect.value = d;
+            renderSelectedMeasurementDetails(found);
+          }
+        });
+      });
+
+      renderMapForCurrentTime();
+    }
+
+    function setupTimelineSlider() {
+      const gran = document.getElementById("granularitySelect").value;
+      const periods = APP_DATA.periods[gran];
+      const slider = document.getElementById("timeSlider");
+      slider.min = 0;
+      slider.max = Math.max(0, periods.length - 1);
+      slider.value = periods.length - 1;
+      document.getElementById("tickStart").textContent = periods[0] || "";
+      document.getElementById("tickEnd").textContent = periods[periods.length - 1] || "";
+      renderMapForCurrentTime();
+    }
+
+    async function initApp() {
+      const resp = await fetch("/api/init");
+      APP_DATA = await resp.json();
+
+      document.getElementById("statusCounter").textContent =
+        `${APP_DATA.stations.length} Pontos CETESB | ${(APP_DATA.ana_etas || []).length} Captações ANA | ${APP_DATA.total_coletas.toLocaleString("pt-BR")} Coletas`;
+
+      const dl = document.getElementById("stationsDatalist");
+      dl.innerHTML = APP_DATA.stations.map(
+        s => `<option value="${s.codigo_ponto}">${s.codigo_ponto} — ${s.municipio} (${s.sistema_hidrico})</option>`
+      ).join("");
+
+      if (APP_DATA.ana_relations) {
+        for (const code of Object.keys(APP_DATA.ana_relations)) {
+          const rel = APP_DATA.ana_relations[code];
+          if (rel.distancia_km <= 10.0) {
+            const ln = L.polyline(
+              [[rel.latitude_cetesb, rel.longitude_cetesb], [rel.latitude_ana, rel.longitude_ana]],
+              { pane: "linkPane", color: "#a855f7", weight: 1.2, dashArray: "4, 4", opacity: 0, interactive: false }
+            ).addTo(map);
+            ALL_LINK_LINES.push(ln);
+          }
+        }
+      }
+
+      if (APP_DATA.ana_etas) {
+        for (const eta of APP_DATA.ana_etas) {
+          const m = L.circleMarker([eta.latitude_ana, eta.longitude_ana], {
+            pane: "anaPane",
+            radius: 4.2,
+            fillColor: "#a855f7",
+            fillOpacity: 0.72,
+            color: "#3b0764",
+            weight: 1.0
+          }).addTo(map);
+
+          const popStr = eta.populacao_atendida ? Number(eta.populacao_atendida).toLocaleString("pt-BR") + " hab." : "N/D";
+          const vzStr = eta.vazao_max_projeto_l_s ? eta.vazao_max_projeto_l_s + " L/s" : "N/D";
+          m.bindTooltip(
+            `<b style="color:#e879f9">[ANA - ETA/Captação] ${eta.nome_eta}</b><br/>` +
+            `Município: <b>${eta.municipio_ana}</b> | Sistema: ${eta.nome_sistema}<br/>` +
+            `Captação: ${eta.nome_captacao} (${eta.manancial_ana})<br/>` +
+            `Tratamento: ${eta.tipo_tratamento}<br/>` +
+            `Vazão Máx.: ${vzStr} | Pop. Atendida: ${popStr}`,
+            { direction: "top", offset: [0, -6] }
+          );
+
+          m.on("click", () => {
+            let bestCode = null;
+            let bestDist = 1e9;
+            for (const st of APP_DATA.stations) {
+              const d = Math.hypot(st.lat - eta.latitude_ana, st.lng - eta.longitude_ana);
+              if (d < bestDist) {
+                bestDist = d;
+                bestCode = st.codigo_ponto;
+              }
+            }
+            if (bestCode) {
+              selectStation(bestCode);
+            }
+          });
+
+          ANA_MARKERS[eta.id_captacao_ana] = m;
+        }
+      }
+
+      for (const st of APP_DATA.stations) {
+        STATION_MAP[st.codigo_ponto] = st;
+
+        const halo = L.circle([st.lat, st.lng], {
+          pane: "haloPane",
+          radius: 12000,
+          fillColor: "#22c55e",
+          fillOpacity: 0,
+          color: "#22c55e",
+          weight: 0.5,
+          opacity: 0,
+          interactive: false
+        }).addTo(map);
+        HALO_MARKERS[st.codigo_ponto] = halo;
+
+        const marker = L.circleMarker([st.lat, st.lng], {
+          pane: "stationPane",
+          radius: 5,
+          fillColor: "#22c55e",
+          fillOpacity: 0.85,
+          color: "#0f172a",
+          weight: 1
+        }).addTo(map);
+
+        marker.bindTooltip(
+          `<b>${st.codigo_ponto}</b> (${st.municipio})<br/>${st.sistema_hidrico}<br/>Coletas: ${st.total_coletas}`,
+          { direction: "top", offset: [0, -6] }
+        );
+
+        marker.on("click", () => {
+          selectStation(st.codigo_ponto);
+        });
+
+        MARKERS[st.codigo_ponto] = marker;
+      }
+
+      setupTimelineSlider();
+      selectStation("PDIZ00700");
+    }
+
+    document.getElementById("timeSlider").addEventListener("input", renderMapForCurrentTime);
+    document.getElementById("metricSelect").addEventListener("change", renderMapForCurrentTime);
+    document.getElementById("captacaoFilter").addEventListener("change", renderMapForCurrentTime);
+    document.getElementById("anaLayerSelect").addEventListener("change", updateAnaLayers);
+    document.getElementById("influenceModeSelect").addEventListener("change", renderMapForCurrentTime);
+    document.getElementById("granularitySelect").addEventListener("change", setupTimelineSlider);
+
+    document.getElementById("stDateSelect").addEventListener("change", (e) => {
+      const d = e.target.value;
+      const found = SELECTED_STATION_HISTORY.find(x => measurementKey(x) === d);
+      if (found) renderSelectedMeasurementDetails(found);
+    });
+
+    document.getElementById("searchStation").addEventListener("change", (e) => {
+      const val = e.target.value.trim().toUpperCase();
+      if (STATION_MAP[val]) {
+        const st = STATION_MAP[val];
+        map.setView([st.lat, st.lng], 11);
+        selectStation(val);
+      }
+    });
+
+    document.getElementById("btnPrev").addEventListener("click", () => {
+      const s = document.getElementById("timeSlider");
+      s.value = Math.max(0, Number(s.value) - 1);
+      renderMapForCurrentTime();
+    });
+
+    document.getElementById("btnNext").addEventListener("click", () => {
+      const s = document.getElementById("timeSlider");
+      s.value = Math.min(Number(s.max), Number(s.value) + 1);
+      renderMapForCurrentTime();
+    });
+
+    document.getElementById("btnPlay").addEventListener("click", () => {
+      const btn = document.getElementById("btnPlay");
+      const s = document.getElementById("timeSlider");
+      if (PLAY_TIMER) {
+        clearInterval(PLAY_TIMER);
+        PLAY_TIMER = null;
+        btn.textContent = "▶ Play";
+      } else {
+        if (Number(s.value) >= Number(s.max)) s.value = 0;
+        btn.textContent = "⏸ Pause";
+        PLAY_TIMER = setInterval(() => {
+          if (Number(s.value) >= Number(s.max)) {
+            clearInterval(PLAY_TIMER);
+            PLAY_TIMER = null;
+            btn.textContent = "▶ Play";
+            return;
+          }
+          s.value = Number(s.value) + 1;
+          renderMapForCurrentTime();
+        }, 550);
+      }
+    });
+
+    initApp();
+  </script>
+</body>
+</html>
