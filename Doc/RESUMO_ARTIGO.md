@@ -232,3 +232,94 @@ em `resultados_recalibracao/pfthm_recal_20261119T221745Z/`.
 
 A recalibração não produz probabilidade de risco de THM, não recalibra a conversão
 PFTHM → THM na ETA e não constitui validação regulatória.
+
+## 4. Discussão: implicações e limitações
+
+Estatísticas calculadas sobre `resultados_v2/estudo_thm_base.parquet`
+(PFTHM observado exato) e sobre a tabela de recalibração publicada.
+
+### 4.1 Distribuição do PFTHM observado (2010–2026)
+
+5.905 medições exatas em 120 pontos.
+
+| Estatística | µg/L |
+|---|---:|
+| Mediana | 294 |
+| P75 / P90 / P95 / P99 | 428 / 588 / 703 / 1.060 |
+| Máximo | 2.650 |
+
+| Limiar | Fração das amostras |
+|---|---:|
+| > 100 µg/L | 95,9% |
+| > 373 µg/L (THM 80 pela reta histórica) | 33,4% |
+| > 400 µg/L (proxy histórico IPT) | 28,8% |
+| > 461 µg/L (THM 100 pela reta histórica) | 20,9% |
+
+Entre os 98 pontos com n ≥ 20, 14 apresentam mediana superior a 400 µg/L.
+Os maiores valores medianos ocorrem em RGDE02030 (637), AVEC02800 (570),
+PCAB02220 (548), TIET02090 (505), SORO02300 (479), BMIR02800 (477), COGR00900
+(438), JNDI00500 (429), CASC02050 (422) e GUAR00900 (418), com 54–81% das
+amostras acima de 400 µg/L. Diversos desses códigos correspondem a reservatórios
+e rios utilizados para abastecimento público na Região Metropolitana de São Paulo
+e no interior; o vínculo manancial–ETA, contudo, não foi confirmado na base
+(seção 1).
+
+A mediana anual elevou-se de 215–253 µg/L (2010–2014) para 308–383 µg/L
+(2018–2026). A tendência não foi submetida a teste estatístico formal
+(e.g., Mann-Kendall sazonal por ponto) e deve ser tratada como hipótese.
+
+As 13.888 previsões recalibradas utilizáveis reproduzem o mesmo quadro:
+24,7% excedem 400 µg/L (mediana 332; P75 398 µg/L), estendendo a leitura a 502
+pontos sem PFTHM medido, com a incerteza individual descrita na seção 3.5.
+
+### 4.2 Conclusões sustentadas pelos dados
+
+1. **Pressão elevada e disseminada de precursores de THM na água bruta.**
+   Aproximadamente um terço das amostras excede o proxy histórico de 400 µg/L e,
+   em 14 mananciais, essa condição é a mediana. Configura-se um fator de risco a
+   montante para a formação de trialometanos na desinfecção por cloro, com
+   indicação de agravamento ao longo da série.
+
+2. **COD isolado é preditor insuficiente de PFTHM.** As equações históricas não
+   generalizaram (R² ≤ 0,05 fora do ajuste; negativo nos pontos de origem). O
+   modelo recalibrado reduziu o erro, mas explica cerca de 29% da variância nos
+   testes, com RMSE (188–204 µg/L) da mesma ordem da distância entre a mediana
+   observada e o limiar de 400 µg/L. A superioridade do termo quadrático e a
+   falha da estrutura linear com sazonalidade indicam saturação da relação em
+   concentrações elevadas e sugerem que a composição da matéria orgânica
+   (aromaticidade/SUVA, origem algal ou terrestre, brometo) tem peso maior que a
+   concentração total. O uso adequado do modelo é a triagem e priorização de
+   monitoramento, não a classificação de coletas individuais.
+
+### 4.3 Conclusões não sustentadas pelos dados
+
+A base **não permite afirmar risco à saúde do consumidor**, por três razões:
+
+- PFTHM é um ensaio de potencial (cloração em excesso, tempo de contato
+  prolongado, condições padronizadas): representa o limite superior de
+  precursores, não a concentração de THM na água distribuída. O THM efetivo
+  depende da remoção de precursores na coagulação, da pré-oxidação, do tipo e
+  dose de desinfetante (cloraminação reduz substancialmente a formação), de pH,
+  temperatura e tempo de residência na rede.
+- Não há medição de THM em saída de ETA ou rede de distribuição
+  (`thm_eta_observado_ug_l` nulo em todas as linhas). A conversão
+  `THM = (PFTHM − 21,334)/4,4` é uma relação de 2012, derivada de um único
+  sistema, não recalibrada e sem avaliação posterior.
+
+Formulação defensável: os mananciais analisados apresentam potencial de formação
+de THM frequentemente compatível com excedência do padrão de potabilidade para
+THM total (100 µg/L, Portaria GM/MS nº 888/2021) **caso o tratamento não remova
+precursores de forma adequada**. Não se conclui que a água distribuída exceda o
+padrão nem que haja exposição da população.
+
+### 4.4 Requisitos para avaliação de risco ao consumidor
+
+1. Séries de THM em água tratada por sistema de abastecimento (SISAGUA/Ministério
+   da Saúde; relatórios de qualidade das concessionárias), pareadas temporalmente
+   com o PFTHM do manancial correspondente.
+2. Confirmação do vínculo manancial–ETA por cadastro de outorga e dados
+   operacionais, em substituição ao critério de distância.
+3. Inclusão de UV254/SUVA, brometo, pH, temperatura e dose de cloro como
+   preditores, para modelar THM efetivo em vez de potencial.
+4. Teste formal de tendência temporal do PFTHM por manancial e análise de
+   sazonalidade associada a eventos de floração algal.
