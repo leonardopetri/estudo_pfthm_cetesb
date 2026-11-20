@@ -181,7 +181,7 @@
     "teste": "Junção completa e caches atuais",
     "status": "PASSOU",
     "linhas": 39750,
-    "colunas": 119,
+    "colunas": 129,
     "comparacao": "exata",
     "arquivos_adicionais": [
       "cache_mapa_sp.parquet"

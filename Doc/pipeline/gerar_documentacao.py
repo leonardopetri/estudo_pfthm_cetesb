@@ -24,6 +24,7 @@ OUT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from pipeline_cetesb import DATA_VERSION, COLLECTION_KEY, CORE_PARAMETERS, sanitize_table_name, slugify
+from modelo_pfthm_mapa import MODEL_VERSION
 from regras_documentais import DESCRIPTIONS, NULL_COLUMNS, REL_ALIASES, RULES, THM_ALIASES
 
 SOURCES = {p.name: p.read_text(encoding="utf-8-sig") for p in ROOT.glob("*.py")}
@@ -67,6 +68,7 @@ PURPOSES = {
     "features_resumo_parametros": ("Um grupo de resultados por ponto e dimensões cadastrais/analíticas.", ", ".join(SUMMARY_KEY), "Medições → estatísticas → Parquet e SQL"),
     "estudo_thm_base": ("Uma coleta com covariáveis do estudo de formação de THM.", ", ".join(COLLECTION_KEY), "Wide → seleção/derivação → Parquet e SQL"),
     "predicoes_risco_thm": ("Uma coleta com PFTHM medido, duas estimativas IPT COD, seleção/proveniência e risco probabilístico indisponível.", ", ".join(COLLECTION_KEY), "Wide → duas equações COD em todos os pontos elegíveis → seleção e status → Parquet e SQL"),
+    "predicoes_pfthm_recalibradas": ("Uma coleta com previsões recalibradas, modelo selecionado e papel na avaliação da execução congelada.", ", ".join(COLLECTION_KEY), "Base THM → ajuste/validação/testes separados → coeficientes e previsões → Parquet e tabela SQL independente"),
     "cache_mapa_sp": ("Uma coleta com união da base THM e colunas exclusivas de predições.", ", ".join(COLLECTION_KEY), "Base THM + predições → inner join 1:1 → cache canônico"),
     "ana_captacoes_etas_sp": ("Um registro de captação ANA enriquecido com cadastro de ETA quando há match.", "id_captacao_ana (validar unicidade observada)", "API ANA ou JSON anterior → integração → JSON e SQL"),
     "relacao_cetesb_ana_etas": ("Uma captação candidata escolhida por ponto CETESB, quando existe candidata até 15 km.", "codigo_ponto; id_captacao_ana relaciona cadastro ANA", "Último ponto com coordenadas + ANA → score geográfico/textual → JSON e SQL"),
@@ -324,6 +326,14 @@ def refs(node, file, before, seen=None):
     return result
 
 
+RECAL_CACHE_COLUMNS = {
+    "pfthm_recalibrado_bruto_ug_l", "pfthm_recalibrado_ug_l",
+    "ponto_no_ajuste_recalibrado_bin", "fora_faixa_cod_recalibrado_bin",
+    "status_modelo_recalibrado", "pfthm_mapa_ug_l", "origem_pfthm_mapa",
+    "thm_eta_mapa_estimado_ug_l", "versao_modelo_recalibrado", "versao_cache_mapa",
+}
+
+
 def get_rule(table, col):
     if table == "ingestao_excel":
         return {"valor_numerico": "ING-NUMERO", "altitude_m": "ING-NUMERO",
@@ -336,12 +346,14 @@ def get_rule(table, col):
         return "THM-SELECAO"
     if table == "predicoes_risco_thm":
         return "THM-RESULTADOS"
+    if table == "predicoes_pfthm_recalibradas":
+        return "RECAL-PUBLICACAO" if col in {"versao_modelo", "versao_dados_origem"} else "RECAL-MODELOS"
     if table == "ana_captacoes_etas_sp":
         return "ANA-LEGADO" if col == "origem_coordenada_planta" else "ANA-EXTRACAO"
     if table == "relacao_cetesb_ana_etas":
         return "ANA-RELACAO"
     if table == "cache_mapa_sp":
-        return "CACHE-JUNCAO"
+        return "CACHE-RECAL" if col in RECAL_CACHE_COLUMNS else "CACHE-JUNCAO"
     if table == "pontos_monitoramento":
         return "EXT-CATALOGO"
     if table == "exportacao_brutos_excel":
@@ -488,6 +500,20 @@ def column_record(table, col):
                 code_start, code_end, node = clean
                 expression = ast.unparse(node)
                 file, function = "pipeline_cetesb.py", "clean_raw_frame"
+    elif table == "predicoes_pfthm_recalibradas":
+        if col in COLLECTION_KEY + ["cod_observado_mg_l", "pfthm_observado_ug_l"]:
+            source = ["estudo_thm_base." + col]
+            classification = "Cópia direta"
+        elif col == "versao_dados_origem":
+            source = ["estudo_thm_base.versao_dados"]
+            classification = "Cópia direta"
+        elif col == "versao_modelo":
+            source = ["Data/hora UTC da execução; identidade dos artefatos de recalibração"]
+            classification = "Geração técnica"
+        else:
+            source = ["estudo_thm_base." + c for c in COLLECTION_KEY + ["cod_observado_mg_l", "pfthm_observado_ug_l"]]
+        expression = expression or "prepare → split_masks → fit_model/validação → reajuste sem testes → predict/calibrate → main"
+        nulls = "Previsões brutas exigem COD/data utilizáveis; selecionada também exige resultado finito não negativo e COD dentro da faixa de ajuste. Medições ausentes não são preenchidas."
     elif table == "exportacao_brutos_excel":
         source = ["ingestao_excel." + col]
         classification = "Cópia direta"
@@ -498,6 +524,11 @@ def column_record(table, col):
         classification = "Cópia direta"
         expression = "raw = pd.concat(raw_parts, ignore_index=True); df = df_all.copy()"
         code_start, code_end = 45, 48
+    elif table == "cache_mapa_sp" and col in RECAL_CACHE_COLUMNS:
+        source = ["estudo_thm_base." + c for c in ("codigo_ponto", "data_coleta", "cod_observado_mg_l", "pfthm_observado_ug_l")]
+        classification = "Transformação"
+        nulls = "Medição tem prioridade; previsão nula sem COD/data exatos, fora da faixa de ajuste ou com resultado negativo/não finito."
+        expression = "apply_selected_model(frame); normalize_map_cache"
     elif table == "cache_mapa_sp":
         origin = "estudo_thm_base" if col in FRAMES["estudo_thm_base"] else "predicoes_risco_thm"
         source = [origin + "." + col]
@@ -736,7 +767,7 @@ def build_catalog(sql):
         raw = set(RAW_COLUMNS + TECH_COLUMNS).issubset({c["coluna"] for c in fields})
         model = "ingestao_excel" if raw else name
         backup = schema != "dbo"
-        definition = PURPOSES.get(model, ("Objeto SQL sem classificação confirmada", "", "Origem pendente"))
+        definition = PURPOSES.get(model, ("Objeto SQL sem classificação confirmada", "Chave lógica não confirmada", "Origem pendente"))
         tables.append({"tabela": full, "classe": "Backup SQL" if backup else ("Tabela SQL de ingestão" if raw else "Tabela SQL atual"),
                        "finalidade_granularidade": definition[0], "chave_logica": definition[1], "fluxo": definition[2],
                        "linhas": fields[0]["linhas_metadados"], "colunas": len(fields),
@@ -744,6 +775,7 @@ def build_catalog(sql):
                        "origem_contagem": "sys.partitions; não COUNT_BIG",
                        "funcoes_responsaveis": "Histórico não confirmado" if backup else
                        ("sanitize_table_name; load_and_clean_raw_file; clean_raw_frame; upload_dataframe_to_sql; sql_frame" if raw else
+                        "recalibrar_pfthm.calibrate; recalibrar_pfthm.publish; sql_frame" if model == "predicoes_pfthm_recalibradas" else
                         "load_tables; sql_frame; publicador SQL; funções analíticas vinculadas nas colunas"),
                        "objetos": full})
         expected = set(SCHEMA_TYPES.get(model, {}))
@@ -793,13 +825,15 @@ def build_catalog(sql):
                     else:
                         row["dominio"] = "Não perfilado para este arquivo histórico; não reutilizar domínio de outras fontes como se fosse deste objeto."
                 row["status"] = "Regra atual documentada; conteúdo e histórico da ingestão SQL não reconciliados"
-                row["origem_imediata"] += " | publicação: pipeline_cetesb.py:1094-1098 → sql_frame"
+                row["origem_imediata"] += " | publicação: pipeline_cetesb.py:1095-1099 → sql_frame"
                 row["regra"] += " | ING-NOME | PERSIST-RAW-SQL | PERSIST-SQL"
                 row["regras_desde_origem"] += " → ING-NOME → PERSIST-RAW-SQL → PERSIST-SQL"
             else:
-                row["origem_imediata"] = model + "." + col + " | load_tables → sql_frame"
-                row["regra"] += " | PERSIST-PUBLICACAO | PERSIST-SQL"
-                row["regras_desde_origem"] += " → PERSIST-PUBLICACAO → PERSIST-SQL"
+                publication = "RECAL-PUBLICACAO" if model == "predicoes_pfthm_recalibradas" else "PERSIST-PUBLICACAO"
+                function = "recalibrar_pfthm.publish" if model == "predicoes_pfthm_recalibradas" else "load_tables"
+                row["origem_imediata"] = model + "." + col + " | " + function + " → sql_frame"
+                row["regra"] += " | " + publication + " | PERSIST-SQL"
+                row["regras_desde_origem"] += " → " + publication + " → PERSIST-SQL"
                 row["status"] = "Esquema SQL confirmado; valores do exemplo são locais, não consultados no SQL"
                 if base:
                     base["tipo_sql_observado"] = sql_type(c)
@@ -1058,7 +1092,7 @@ def render(tables, columns, rules, coverage, reconciliation):
         "       │                                      ├─ estudo_thm_base\n" + \
         "       │                                      └─ predicoes_risco_thm\n" + \
         "       └─ estatísticas por grupo → features_resumo_parametros\n" + \
-        "Base THM + predições → inner join 1:1 → cache local / cache via SELECT SQL → mapa\n" + \
+        "Base THM + predições → inner join 1:1 → quadrático recalibrado congelado → cache local / SQL → mapa\n" + \
         "ANA API ou JSON anterior → cadastro captações/ETAs + último ponto CETESB com coordenadas\n" + \
         "                       → candidatas até 15 km → JSON / duas tabelas SQL\n" + \
         "Parquets analíticos + JSON ANA → publicar_resultados_sql → seis tabelas SQL\n" + \
@@ -1071,7 +1105,8 @@ def render(tables, columns, rules, coverage, reconciliation):
     body += "<h2>Documentação metodológica reaproveitada</h2><ul><li><a href='../METODOLOGIA_E_VALIDACAO.md'>Metodologia e limites científicos</a>: regras atuais conferidas; não substitui revisão científica.</li><li><a href='../EQUIVALENCIA_PIPELINE.md'>Equivalência anterior</a>: evidência histórica, não nova consulta integral nesta execução.</li><li><a href='../RESULTADOS_VALIDACAO.md'>Resultados de 16/11</a>: distingue estado antes e depois da publicação.</li></ul>"
     body += "<h2>Verificação nesta execução</h2>" + html_table(reconciliation, ["teste", "status", "linhas", "colunas"])
     body += "<h2>Reproduzir sem alterar a pipeline</h2><pre>python Doc/pipeline/inventariar_sql.py\npython Doc/pipeline/gerar_documentacao.py\npython Doc/pipeline/validar_documentacao.py\npython -m unittest test_validacao -v</pre><p>O primeiro comando é opcional e consulta somente metadados com a configuração existente, sem gravar credenciais nos entregáveis. Os geradores escrevem somente em Doc/pipeline. Sem Git neste diretório, a versão é fixada por SHA-256 dos arquivos e do manifesto.</p>"
-    body += "<h2>Modelos históricos IPT por COD</h2><p>As duas equações são calculadas separadamente em todos os pontos com COD exato. Fora de ANOR02300 (modelo 1) ou ARPE02800 (modelo 2), são extrapolações experimentais. Seleção operacional: modelo 2 em ARPE02800, modelo 1 nos demais; medição tem prioridade. Negativos são rejeitados. Não há probabilidades de risco.</p>"
+    body += "<h2>Modelo selecionado no mapa</h2><p>A camada padrão prioriza PFTHM medido e preenche ausências com o quadrático recalibrado, em todos os pontos com COD exato entre 1 e 159 mg/L. O ajuste é congelado e experimental; o mapa não retreina coeficientes. <a href='RECALIBRACAO_PFTHM.md'>Coeficientes, testes e integração</a>.</p>"
+    body += "<h2>Modelos históricos IPT por COD</h2><p>As duas equações permanecem disponíveis para comparação. Fora de ANOR02300 (modelo 1) ou ARPE02800 (modelo 2), são extrapolações experimentais. A seleção antiga (modelo 2 em ARPE02800, modelo 1 nos demais) é preservada nas tabelas históricas; não preenche a camada padrão atual. Não há probabilidades de risco.</p>"
     body += "<p><a href='MODELOS_IPT_COD.md'>Equações, limites e avaliação temporal</a> · <a href='avaliacao_modelos_ipt.json'>Resultados numéricos da avaliação</a></p>"
     (OUT / "index.html").write_text(page("Pipeline de dados CETESB — documentação", body), encoding="utf-8")
 
@@ -1120,6 +1155,18 @@ def main():
                     "excel": EXCEL_FILES, "headers": HEADERS, "parametros": PARAMETERS, "unidades": UNITS,
                     "tipos": SCHEMA_TYPES, "perfis": PROFILES, "perfis_por_ponto": RAW_PROFILES, "hashes_codigo": HASHES}
         snapshot_path.write_text(json.dumps(snapshot, ensure_ascii=False, default=lambda x: sorted(x) if isinstance(x, set) else str(x)), encoding="utf-8")
+    # A avaliação congelada é independente das quatro tabelas históricas.
+    calibration_table = "predicoes_pfthm_recalibradas"
+    calibration_path = ROOT / "resultados_recalibracao" / MODEL_VERSION / (calibration_table + ".parquet")
+    calibration_frame = pd.read_parquet(calibration_path)
+    FRAMES[calibration_table] = calibration_frame
+    profile(calibration_frame, calibration_table, calibration_path.relative_to(ROOT).as_posix())
+    for col in calibration_frame:
+        SCHEMA_TYPES[calibration_table][col].add(str(calibration_frame[col].dtype))
+    for obj in PHYSICAL:
+        if obj["objeto"] == calibration_path.relative_to(ROOT).as_posix():
+            obj["tabela_logica"] = calibration_table
+            obj["classe"] = "Avaliação de recalibração congelada"
     sql_path = OUT / "sql_inventario.json"
     sql = json.loads(sql_path.read_text(encoding="utf-8")) if sql_path.exists() else {}
     if not sql:

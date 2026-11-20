@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mapa Dinâmico CETESB SP — Qualidade da Água e Modelo THM (IPT)</title>
+  <title>Mapa CETESB SP — PFTHM medido e recalibrado</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -384,7 +384,7 @@
 <body>
   <header>
     <div class="brand">
-      <h1>Mapa Dinâmico CETESB SP — Risco de THM e Qualidade da Água</h1>
+      <h1>Mapa CETESB SP — PFTHM e Qualidade da Água</h1>
       <span id="statusCounter">Carregando 659 estações...</span>
     </div>
     <div class="toolbar">
@@ -393,11 +393,12 @@
         <select id="metricSelect">
           <option value="prob_risco_fq" disabled>Risco THM físico-químico — não validado</option>
           <option value="prob_risco_espacial" disabled>Risco THM espacial — não validado</option>
-          <option value="pfthm" selected>PFTHM medido ou estimado IPT COD (µg/L)</option>
+          <option value="pfthm" selected>PFTHM medido ou recalibrado (µg/L)</option>
           <option value="pfthm_observado">Somente PFTHM medido (µg/L)</option>
-          <option value="pfthm_ipt">PFTHM estimado IPT — seleção operacional (experimental)</option>
-          <option value="pfthm_ipt_1">PFTHM estimado — modelo 1 (COD + JFM)</option>
-          <option value="pfthm_ipt_2">PFTHM estimado — modelo 2 (COD quadrático)</option>
+          <option value="pfthm_recalibrado">PFTHM — quadrático recalibrado (experimental)</option>
+          <option value="pfthm_ipt">Comparação IPT histórico — seleção antiga</option>
+          <option value="pfthm_ipt_1">Comparação IPT histórico — modelo 1 (COD + JFM)</option>
+          <option value="pfthm_ipt_2">Comparação IPT histórico — modelo 2 (COD quadrático)</option>
           <option value="thm_eta">THM estimado pela reta histórica (µg/L) — não medido</option>
           <option value="cot">Carbono Orgânico Total - COT (mg/L)</option>
           <option value="iqa" disabled>IQA oficial — cálculo indisponível</option>
@@ -486,7 +487,7 @@
         <h3>Selecione um Ponto no Mapa</h3>
         <p>Clique em qualquer estação de monitoramento no mapa (ou pesquise pelo código no topo) para inspecionar:</p>
         <p style="margin-top:8px;font-size:12px;color:#cbd5e1;">
-          • PFTHM medido tem prioridade. As duas equações IPT COD são calculadas onde há COD exato; fora de seu ponto original são extrapolações experimentais. Contorno tracejado indica estimativa. Probabilidades de risco continuam indisponíveis;<br/>
+           • PFTHM medido tem prioridade; sem medição, aplica-se o quadrático recalibrado a todo ponto com COD exato entre 1 e 159 mg/L. Contorno tracejado indica estimativa experimental. Cinza indica ausência do indicador; probabilidades de risco continuam indisponíveis;<br/>
           • <b>Índices Ambientais</b> (IQA, IET, Saturação de OD, Classe CONAMA);<br/>
           • Todos os <b>Parâmetros (X)</b> utilizados nas equações daquela medição;<br/>
           • Gráficos de evolução histórica à medida que você rola no tempo.
@@ -617,8 +618,8 @@
     map.createPane("stationPane");
     map.getPane("stationPane").style.zIndex = 460;
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 18
     }).addTo(map);
 
@@ -702,7 +703,7 @@
 
     function getPfthmValue(metric, snap) {
       if (!snap) return null;
-      const index = {pfthm_observado: 3, pfthm_ipt: 19, pfthm_ipt_1: 23, pfthm_ipt_2: 24}[metric] ?? 2;
+      const index = {pfthm_observado: 3, pfthm_ipt: 19, pfthm_ipt_1: 23, pfthm_ipt_2: 24, pfthm_recalibrado: 26}[metric] ?? 27;
       return snap[index] ?? null;
     }
 
@@ -710,7 +711,7 @@
       if (!snap) return "#334155";
       const probFq = snap[1];
       const pfthm = getPfthmValue(metric, snap);
-      const thmEta = snap[4];
+      const thmEta = snap[29];
       const cot = snap[5];
       const iqa = snap[7];
       const iet = snap[8];
@@ -810,13 +811,13 @@
           ]
         },
         pfthm: {
-          title: "PFTHM: medição prioritária; estimativa IPT COD com contorno tracejado",
+          title: "PFTHM: medição prioritária; quadrático recalibrado com contorno tracejado",
           items: [
             ["#ef4444", "> 400 µg/L (referência histórica de PFTHM; não é limite de THM na ETA)"],
             ["#f97316", "300 a 400 µg/L"],
             ["#eab308", "180 a 300 µg/L"],
             ["#22c55e", "≤ 180 µg/L"],
-            ["#334155", "Sem medição no período"]
+            ["#334155", "Sem valor do indicador na coleta selecionada"]
           ]
         },
         thm_eta: {
@@ -880,7 +881,8 @@
       };
       const cfg = legends[metric] || (metric.startsWith("pfthm") ? legends.pfthm : legends.prob_risco_fq);
       if (metric === "pfthm_observado") cfg.title = "Somente PFTHM medido (µg/L)";
-      if (metric.startsWith("pfthm_ipt")) cfg.title = `PFTHM estimado — ${metric === "pfthm_ipt_1" ? "modelo 1" : metric === "pfthm_ipt_2" ? "modelo 2" : "seleção operacional"} (µg/L), experimental`;
+      if (metric === "pfthm_recalibrado") cfg.title = "PFTHM quadrático recalibrado (µg/L) — experimental; COD entre 1 e 159 mg/L";
+      if (metric.startsWith("pfthm_ipt")) cfg.title = `Comparação IPT histórico — ${metric === "pfthm_ipt_1" ? "modelo 1" : metric === "pfthm_ipt_2" ? "modelo 2" : "seleção antiga"} (µg/L), experimental`;
       box.innerHTML = `<h4>${cfg.title}</h4>` + cfg.items.map(
         it => `<div class="legend-item"><span class="legend-dot" style="background:${it[0]}"></span><span>${it[1]}</span></div>`
       ).join("") + `
@@ -1171,7 +1173,7 @@
           color: strokeColor,
           weight: strokeWeight,
           opacity: snap || isSelected ? 1 : 0.35,
-          dashArray: snap && (metric.startsWith("pfthm_ipt") || (["pfthm", "thm_eta"].includes(metric) && snap[20] === "Estimado IPT COD")) ? "3 3" : null
+          dashArray: snap && (metric.startsWith("pfthm_ipt") || metric === "pfthm_recalibrado" || metric === "thm_eta" || (metric === "pfthm" && snap[28] === "Estimado recalibrado")) ? "3 3" : null
         });
 
         if (isSelected) {
@@ -1181,7 +1183,7 @@
 
       document.getElementById("pillActiveCount").textContent = `Com medição no período: ${activeCount} / ${APP_DATA.stations.length}`;
       document.getElementById("pillCritCount").textContent = "Risco THM: indeterminado — modelos não validados";
-      const pfthmLabel = metric === "pfthm_observado" ? "medido" : metric === "pfthm_ipt_1" ? "modelo 1" : metric === "pfthm_ipt_2" ? "modelo 2" : metric === "pfthm_ipt" ? "estimado operacional" : "medido/estimado";
+      const pfthmLabel = metric === "pfthm_observado" ? "medido" : metric === "pfthm_recalibrado" ? "quadrático recalibrado" : metric === "pfthm_ipt_1" ? "IPT histórico 1" : metric === "pfthm_ipt_2" ? "IPT histórico 2" : metric === "pfthm_ipt" ? "seleção histórica" : "medido/recalibrado";
       document.getElementById("pillMeanPFTHM").textContent = `PFTHM médio (${pfthmLabel}, n=${pfthmCnt}): ${pfthmCnt ? (pfthmSum / pfthmCnt).toFixed(1) : "--"} µg/L`;
 
       updateInfluenceZones(metric, snaps);
@@ -1308,16 +1310,24 @@
         </div>
         <div class="kpi-box">
           <div class="kpi-label">PFTHM selecionado / THM estimado histórico</div>
-          <div class="kpi-val">${fmt(rec.pfthm_final_ug_l, 1)} / ${fmt(rec.thm_eta_final_ug_l, 1)} <span style="font-size:11px">µg/L</span></div>
-          <div class="kpi-sub">Origem: ${rec.origem_pfthm}. THM não medido na ETA.</div>
+          <div class="kpi-val">${fmt(rec.pfthm_mapa_ug_l, 1)} / ${fmt(rec.thm_eta_mapa_estimado_ug_l, 1)} <span style="font-size:11px">µg/L</span></div>
+          <div class="kpi-sub">Origem: ${rec.origem_pfthm_mapa}. THM não medido na ETA.</div>
         </div>
         <div class="kpi-box">
-          <div class="kpi-label">PFTHM IPT — regra operacional (experimental)</div>
+          <div class="kpi-label">Quadrático recalibrado — modelo selecionado</div>
+          <div class="kpi-val">${fmt(rec.pfthm_recalibrado_ug_l, 2, " µg/L")}</div>
+          <div class="kpi-sub">${rec.status_modelo_recalibrado}<br/>
+          Teste temporal: R²=${fmt(APP_DATA.modelo_recalibrado.teste_temporal.r2, 3)}, MAE=${fmt(APP_DATA.modelo_recalibrado.teste_temporal.mae_ug_l, 1)} µg/L.<br/>
+          Teste espacial: R²=${fmt(APP_DATA.modelo_recalibrado.teste_espacial.r2, 3)}, MAE=${fmt(APP_DATA.modelo_recalibrado.teste_espacial.mae_ug_l, 1)} µg/L.<br/>
+          Avaliação agregada; não garante precisão nesta coleta.</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">Comparação IPT histórico — regra antiga</div>
           <div class="kpi-val">${fmt(rec.pfthm_predito_ipt_ug_l, 2, " µg/L")}</div>
           <div class="kpi-sub">${rec.modelo_pfthm_ipt}<br/>${rec.aplicacao_modelo_pfthm}<br/>${rec.status_modelo_pfthm}<br/>${evaluationText}</div>
         </div>
         <div class="kpi-box">
-          <div class="kpi-label">Modelo 1 / Modelo 2 — PFTHM (µg/L)</div>
+          <div class="kpi-label">IPT histórico 1 / 2 — PFTHM (µg/L)</div>
           <div class="kpi-val">${fmt(rec.pfthm_modelo_1_ipt_ug_l, 2)} / ${fmt(rec.pfthm_modelo_2_ipt_ug_l, 2)}</div>
           <div class="kpi-sub">Modelo 1 originado em ANOR02300; modelo 2 em ARPE02800. Aplicação em outro ponto é extrapolação não validada.</div>
         </div>
@@ -1325,13 +1335,17 @@
 
       document.getElementById("stFormulaExplain").innerHTML =
         `<b>Limites de interpretação desta coleta:</b><br/>` +
+        `• Modelo selecionado: ${APP_DATA.modelo_recalibrado.equacao}. COD em mg/L; PFTHM em µg/L. Versão: ${rec.versao_modelo_recalibrado}.<br/>` +
+        `• O mapa prioriza PFTHM medido; na ausência, usa somente o quadrático recalibrado com COD exato entre 1 e 159 mg/L. Sem COD ou fora da faixa, não há preenchimento por equação histórica.<br/>` +
+        `• Resultado recalibrado bruto: ${fmt(rec.pfthm_recalibrado_bruto_ug_l, 2, " µg/L")}. ${rec.status_modelo_recalibrado}.<br/>` +
+        `<b>Equações históricas, mantidas para comparação:</b><br/>` +
         `• ANOR02300: PFTHM = 235 + 15,9 × COD + 282 × JFM. ARPE02800: PFTHM = −1983 + 669 × COD − 43,3 × COD² (DOC² interpretado como COD²).<br/>` +
         `• Ambas aplicadas em todos os pontos com COD exato (mg/L), gerando PFTHM em µg/L. Fora do ponto original, extrapolação experimental não validada. JFM = 1 em janeiro–março; 0 nos demais meses. Resultados negativos são rejeitados, sem truncamento em zero.<br/>` +
-        `• Seleção operacional: modelo 2 em ARPE02800; modelo 1 nos demais. Não há média nem troca de modelo quando uma previsão é rejeitada. A medição de PFTHM continua prioritária.<br/>` +
+        `• Seleção histórica para comparação: modelo 2 em ARPE02800; modelo 1 nos demais. Essa regra não preenche a camada padrão atual.<br/>` +
         `• Resultados brutos: modelo 1 = ${fmt(rec.pfthm_modelo_1_ipt_bruto_ug_l, 2)}; modelo 2 = ${fmt(rec.pfthm_modelo_2_ipt_bruto_ug_l, 2)} µg/L.<br/>` +
-        `• Resultado bruto da equação: ${fmt(rec.pfthm_ipt_bruto_ug_l, 2, " µg/L")}. Medição de PFTHM tem prioridade. ${rec.status_thm_eta}.<br/>` +
+        `• Resultado bruto da seleção histórica: ${fmt(rec.pfthm_ipt_bruto_ug_l, 2, " µg/L")}.<br/>` +
         `• Estas regressões não calculam probabilidade de risco THM; os modelos logísticos continuam indisponíveis.<br/>` +
-        `• THM = max(0, (PFTHM − 21,334) / 4,4) é uma estimativa pela relação histórica, não uma medição na ETA.<br/>` +
+        `• THM = max(0, (PFTHM − 21,334) / 4,4) usa o PFTHM selecionado da mesma coleta. A relação não foi recalibrada nem representa medição na ETA.<br/>` +
         `• Valores censurados e ausentes não são tratados como medições exatas. O mapa não comprova potabilidade nem conexão entre ponto e ETA.`;
 
       document.getElementById("stIndicesKpis").innerHTML = `
@@ -1390,6 +1404,7 @@
       const ctx = document.getElementById("stationChart").getContext("2d");
       const labels = SELECTED_STATION_HISTORY.map(measurementKey);
       const pfthmData = SELECTED_STATION_HISTORY.map(r => r.pfthm_observado_ug_l);
+      const recalibratedData = SELECTED_STATION_HISTORY.map(r => r.pfthm_recalibrado_ug_l);
       const pfthmEstimated = SELECTED_STATION_HISTORY.map(r => r.pfthm_modelo_1_ipt_ug_l);
       const pfthmEstimated2 = SELECTED_STATION_HISTORY.map(r => r.pfthm_modelo_2_ipt_ug_l);
       const riskFqData = SELECTED_STATION_HISTORY.map(r => r.prob_risco_thm_fisico_quimico_ipt !== null ? +(r.prob_risco_thm_fisico_quimico_ipt * 100).toFixed(1) : null);
@@ -1415,7 +1430,17 @@
               pointRadius: pointRadii
             },
             {
-              label: "PFTHM modelo 1 — experimental (µg/L)",
+              label: "Quadrático recalibrado — experimental (µg/L)",
+              data: recalibratedData,
+              borderColor: "#22c55e",
+              borderDash: [5, 5],
+              yAxisID: "y",
+              tension: 0,
+              pointRadius: pointRadii
+            },
+            {
+              label: "IPT histórico 1 — experimental (µg/L)",
+              hidden: true,
               data: pfthmEstimated,
               borderColor: "#fbbf24",
               borderDash: [5, 5],
@@ -1424,7 +1449,8 @@
               pointRadius: pointRadii
             },
             {
-              label: "PFTHM modelo 2 — experimental (µg/L)",
+              label: "IPT histórico 2 — experimental (µg/L)",
+              hidden: true,
               data: pfthmEstimated2,
               borderColor: "#c084fc",
               borderDash: [3, 3],
@@ -1501,7 +1527,7 @@
           <td>${measurementKey(r)}</td>
           <td>${r.estacao_hidrologica || "-"}</td>
           <td class="num">${fmt(r.cot_observado_mg_l, 2)}</td>
-          <td class="num">${fmt(r.pfthm_final_ug_l, 1)}</td>
+          <td class="num">${fmt(r.pfthm_mapa_ug_l, 1)}<br/><small>${r.origem_pfthm_mapa}</small></td>
           <td class="num">${fmt(r.iqa_estimado, 1)}</td>
           <td class="num">${pStr}</td>
         </tr>`;

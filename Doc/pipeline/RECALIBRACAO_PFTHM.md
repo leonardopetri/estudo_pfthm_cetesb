@@ -3,9 +3,9 @@
 Execução: `pfthm_recal_20261119T221745Z`.
 Tabela publicada: **`dbo.predicoes_pfthm_recalibradas`**.
 São 39.750 coletas, 23 colunas, com 13.888 previsões selecionadas disponíveis
-em 502 pontos. A tabela histórica `predicoes_risco_thm` e o cache do mapa
-permanecem com as equações históricas. Esta execução não integra automaticamente
-as novas previsões à visualização.
+em 502 pontos. A tabela histórica `predicoes_risco_thm` preserva as equações
+históricas. Posteriormente, a pedido do usuário, o modelo selecionado foi
+integrado ao mapa conforme a seção abaixo.
 
 Artefatos completos em
 `resultados_recalibracao/pfthm_recal_20261119T221745Z/`:
@@ -166,3 +166,54 @@ hash do cache histórico foram conferidos e permaneceram iguais.
 
 O dicionário geral de `Doc/pipeline` é um retrato da publicação histórica
 anterior. Esta tabela adicional é documentada aqui e nos artefatos desta execução.
+
+## Integração ao mapa
+
+O aplicativo deste repositório é `app_mapa_sp.py`. A camada padrão
+**PFTHM medido ou recalibrado** usa a medição exata e, na ausência dela,
+o quadrático recalibrado da mesma coleta. A opção **Quadrático recalibrado**
+exibe somente a previsão, inclusive quando existe uma medição para comparação.
+As equações históricas permanecem em opções identificadas como comparação.
+Sem COD ou fora de 1–159 mg/L não há preenchimento pela equação antiga.
+
+`modelo_pfthm_mapa.py` contém os coeficientes congelados, a normalização e a
+lista de pontos que contribuíram para o ajuste. Ele não retreina modelos.
+A mesma função é usada pelo cache do pipeline, pelo reprocessamento local,
+pela consulta SQL do aplicativo e pela migração de caches antigos.
+Isso também permite aplicar a equação a coletas novas sem depender de uma
+linha já existente na tabela de avaliação `predicoes_pfthm_recalibradas`.
+A tabela separada continua sendo o registro da execução de calibração.
+
+Campos acrescentados ao cache:
+
+- `pfthm_recalibrado_ug_l` e `pfthm_recalibrado_bruto_ug_l`: previsão aceita e bruta;
+- `pfthm_mapa_ug_l` e `origem_pfthm_mapa`: seleção medida/recalibrada da mesma coleta;
+- `status_modelo_recalibrado`, `ponto_no_ajuste_recalibrado_bin` e
+  `fora_faixa_cod_recalibrado_bin`: disponibilidade, proveniência e domínio;
+- `thm_eta_mapa_estimado_ug_l`: reta histórica aplicada ao PFTHM selecionado;
+- `versao_modelo_recalibrado` e `versao_cache_mapa`: versão do modelo e do cache.
+
+Os nomes históricos `pfthm_final_ug_l` e `origem_pfthm` continuam descrevendo a
+seleção antiga, para auditoria. Não devem ser confundidos com os novos campos
+`*_mapa`. A conversão PFTHM–THM não foi recalibrada. Nenhuma probabilidade de
+risco foi habilitada.
+
+Os snapshots mantêm uma única coleta por ponto/período. Na API compacta,
+as posições antigas 0–25 foram preservadas; acrescentaram-se 26=previsão
+recalibrada, 27=PFTHM do mapa, 28=origem do mapa, 29=THM estimado do mapa,
+30=status da recalibração e 31=versão do modelo. O endpoint de estação fornece
+os campos por nome. O painel e o gráfico distinguem medição, recalibração
+e equações históricas.
+
+A integração foi comparada integralmente com o SQL: o cache possui 39.750
+linhas e 129 colunas, com igualdade exata entre os caminhos local e SQL;
+os resultados recalibrados também coincidem com a tabela separada.
+A camada padrão tem 5.905 medições, 8.292 estimativas e 25.553 valores
+indeterminados, totalizando 14.197 coletas com PFTHM. São seis preenchimentos
+a mais que na seleção histórica, por previsões antes rejeitadas em ARPE02800.
+
+Os 502 pontos com previsão referem-se à série completa. No trimestre parcial
+2026-T4, a última coleta de cada ponto contém COD utilizável em apenas três
+pontos. O mapa não preenche a coleta atual com COD ou PFTHM de datas anteriores.
+O fundo usa OpenStreetMap, com atribuição, após o serviço CARTO retornar imagens
+com exigência de chave durante a validação visual.

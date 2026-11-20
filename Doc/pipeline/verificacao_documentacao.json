@@ -1,10 +1,10 @@
 {
-  "executado_em_utc": "2026-11-19T02:11:14.137035+00:00",
-  "testes_executados": 36,
+  "executado_em_utc": "2026-11-20T00:25:10.390251+00:00",
+  "testes_executados": 41,
   "sucesso": true,
   "falhas": [],
   "erros": [],
   "ignorados": [],
-  "catalogo_sha256": "a50b1baaa68c20d0457c8332e33fcfa481a9fee0369024dd8dfe8b04db455788",
+  "catalogo_sha256": "5b28350b6ab81251d02e32e3172f846b7320e481f198509402b81f64e210deb8",
   "escopo": "Testes da pipeline e estruturais/documentais, incluindo equações IPT COD; sem publicação ou consulta de valores SQL."
 }

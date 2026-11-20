@@ -966,11 +966,12 @@ def normalize_map_cache(frame):
 
 
 def build_map_cache(study, predictions):
+    from modelo_pfthm_mapa import apply_selected_model
     additional = COLLECTION_KEY + [c for c in predictions if c not in study]
     result = study.merge(predictions[additional], on=COLLECTION_KEY, validate="one_to_one")
     if len(result) != len(study) or len(result) != len(predictions):
         raise ValueError("Chaves divergentes entre base THM e predições.")
-    return normalize_map_cache(result)
+    return normalize_map_cache(apply_selected_model(result))
 
 
 def upload_dataframe_to_sql(df: pd.DataFrame, table_name: str, engine, schema: str = "dbo"):

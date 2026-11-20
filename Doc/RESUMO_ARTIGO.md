@@ -258,14 +258,14 @@ Estatísticas calculadas sobre `resultados_v2/estudo_thm_base.parquet`
 Entre os 98 pontos com n ≥ 20, 14 apresentam mediana superior a 400 µg/L.
 Os maiores valores medianos ocorrem em RGDE02030 (637), AVEC02800 (570),
 PCAB02220 (548), TIET02090 (505), SORO02300 (479), BMIR02800 (477), COGR00900
-(438), JNDI00500 (429), CASC02050 (422) e GUAR00900 (418), com 54–81% das
+(438), JNDI00500 (429), CASC02050 (422) e GUAR00900 (418), com 58–81% das
 amostras acima de 400 µg/L. Diversos desses códigos correspondem a reservatórios
 e rios utilizados para abastecimento público na Região Metropolitana de São Paulo
 e no interior; o vínculo manancial–ETA, contudo, não foi confirmado na base
 (seção 1).
 
 A mediana anual elevou-se de 215–253 µg/L (2010–2014) para 308–383 µg/L
-(2018–2026). A tendência não foi submetida a teste estatístico formal
+(2018–2026, exceto 2024, com 280 µg/L). A tendência não foi submetida a teste estatístico formal
 (e.g., Mann-Kendall sazonal por ponto) e deve ser tratada como hipótese.
 
 As 13.888 previsões recalibradas utilizáveis reproduzem o mesmo quadro:

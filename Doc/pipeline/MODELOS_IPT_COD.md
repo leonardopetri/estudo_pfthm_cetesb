@@ -101,8 +101,11 @@ própria última coleta.
 
 ## Mapa e reprodução
 
-O mapa oferece PFTHM selecionado (medido prioritário), somente medido, estimativa
-selecionada, modelo 1 e modelo 2. Estimativas têm contorno tracejado. O painel identifica origem, equação,
+Após a recalibração, a camada padrão do mapa prioriza a medição e preenche
+ausências pelo quadrático recalibrado, conforme `RECALIBRACAO_PFTHM.md`.
+As equações descritas neste documento e sua seleção operacional antiga
+permanecem em opções identificadas como **comparação IPT histórico**.
+Estimativas têm contorno tracejado. O painel identifica origem, equação,
 resultado bruto, status e desempenho temporal; o gráfico separa observado e
 estimado por cada modelo. Snapshots continuam selecionando uma única coleta real por período.
 

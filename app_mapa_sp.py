@@ -1,6 +1,8 @@
 import json
 import math
 import os
+import shutil
+from datetime import datetime
 import sys
 import time
 from pathlib import Path
@@ -13,6 +15,7 @@ from sqlalchemy import Integer, Numeric, inspect, text
 
 from pipeline_cetesb import DATA_VERSION, build_sqlalchemy_engine, normalize_map_cache
 from avaliar_modelos_ipt import evaluate
+from modelo_pfthm_mapa import apply_selected_model, MODEL_INFO, MODEL_VERSION, CACHE_VERSION
 
 app = Flask(__name__)
 
@@ -188,7 +191,7 @@ def fetch_merged_from_azure_sql() -> pd.DataFrame:
                 columns = inspector.get_columns("estudo_thm_base", schema="dbo")
                 columns += inspector.get_columns("predicoes_risco_thm", schema="dbo")
                 df = pd.read_sql(query, conn)
-            return normalize_map_cache(restore_sql_numeric_types(df, columns))
+            return normalize_map_cache(apply_selected_model(restore_sql_numeric_types(df, columns)))
         except Exception as exc:
             if attempt == 4:
                 raise
@@ -198,7 +201,7 @@ def fetch_merged_from_azure_sql() -> pd.DataFrame:
 
 
 def build_memory_structures(df: pd.DataFrame):
-    df = df.copy()
+    df = apply_selected_model(df)
     df = df[df["latitude_decimal"].notna() & df["longitude_decimal"].notna()].copy()
     df["data_coleta_str"] = pd.to_datetime(df["data_coleta"]).dt.strftime("%Y-%m-%d")
     df["ano"] = df["ano"].astype(int)
@@ -226,7 +229,7 @@ def build_memory_structures(df: pd.DataFrame):
                 "primeira_coleta": str(grp["data_coleta_str"].min()),
                 "ultima_coleta": str(grp["data_coleta_str"].max()),
                 "prob_media_risco": clean_val(grp["prob_risco_thm_consolidada"].mean()),
-                "pfthm_max": clean_val(grp["pfthm_final_ug_l"].max()),
+                "pfthm_max": clean_val(grp["pfthm_mapa_ug_l"].max()),
                 "iqa_medio": clean_val(grp["iqa_estimado"].mean()),
             }
         )
@@ -267,6 +270,12 @@ def build_memory_structures(df: pd.DataFrame):
                     clean_val(row.pfthm_modelo_1_ipt_ug_l),
                     clean_val(row.pfthm_modelo_2_ipt_ug_l),
                     clean_val(row.aplicacao_modelo_pfthm),
+                    clean_val(row.pfthm_recalibrado_ug_l),
+                    clean_val(row.pfthm_mapa_ug_l),
+                    clean_val(row.origem_pfthm_mapa),
+                    clean_val(row.thm_eta_mapa_estimado_ug_l),
+                    clean_val(row.status_modelo_recalibrado),
+                    clean_val(row.versao_modelo_recalibrado),
                 ]
             snapshots[per] = p_dict
         return periods, snapshots
@@ -316,7 +325,8 @@ def build_memory_structures(df: pd.DataFrame):
         "total_coletas": len(df),
         "versao_dados": DATA_VERSION,
         "avaliacao_modelos_ipt": evaluate(df),
-        "aviso_metodologico": "Equações IPT COD em todos os pontos com COD exato. Fora dos pontos originais: extrapolação experimental não validada. Risco THM não calculado.",
+        "modelo_recalibrado": MODEL_INFO,
+        "aviso_metodologico": "PFTHM medido prioritário; ausência preenchida pelo quadrático recalibrado com COD exato entre 1 e 159 mg/L. Estimativas experimentais; probabilidades de risco THM não calculadas.",
     }
 
 
@@ -324,6 +334,16 @@ def load_data(force_db: bool = False):
     if not force_db and CACHE_FILE.exists():
         print(f"Carregando dados do cache local: {CACHE_FILE} ...")
         df = pd.read_parquet(CACHE_FILE)
+        validate_data_version(df)
+        current = ("versao_cache_mapa" in df and "versao_modelo_recalibrado" in df
+                   and df.versao_cache_mapa.eq(CACHE_VERSION).fillna(False).all()
+                   and df.versao_modelo_recalibrado.eq(MODEL_VERSION).fillna(False).all())
+        if not current:
+            df = normalize_map_cache(apply_selected_model(df))
+            shutil.copy2(CACHE_FILE, CACHE_FILE.with_name(CACHE_FILE.name + ".antes_recalibrado_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f")))
+            temporary = CACHE_FILE.with_suffix(".tmp.parquet")
+            df.to_parquet(temporary, index=False)
+            os.replace(temporary, CACHE_FILE)
     else:
         print("Consultando dbo.estudo_thm_base e dbo.predicoes_risco_thm no Azure SQL Server...")
         df = fetch_merged_from_azure_sql()

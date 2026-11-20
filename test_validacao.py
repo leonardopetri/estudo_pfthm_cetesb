@@ -35,6 +35,54 @@ def raw_frame(values, *, code="TEST00001", cls="Classe 2", environment="Rio (Ló
 
 
 class RecalibrationTests(unittest.TestCase):
+    def test_map_uses_frozen_model_for_new_points_and_preserves_measurements(self):
+        from modelo_pfthm_mapa import apply_selected_model
+        frame = pd.DataFrame({
+            "codigo_ponto": ["ANOR02300", "FUTURO", "FUTURO", "OUTRO", "OUTRO", "OUTRO"],
+            "data_coleta": ["2030-01-01"] * 6,
+            "cod_observado_mg_l": [5., 5., 159., 166., np.nan, np.nan],
+            "cot_observado_mg_l": [10.] * 6,
+            "pfthm_observado_ug_l": [np.nan, np.nan, 90., np.nan, np.nan, 210.],
+            "pfthm_final_ug_l": [999.] * 6,
+        })
+        result = apply_selected_model(frame)
+        self.assertEqual(result.pfthm_recalibrado_ug_l.iloc[0], result.pfthm_recalibrado_ug_l.iloc[1])
+        self.assertAlmostEqual(result.pfthm_recalibrado_ug_l.iloc[1],
+                               152.94581346032018 + 45.81017730316374*5 - .28072538914988554*25)
+        self.assertEqual(result.ponto_no_ajuste_recalibrado_bin.iloc[1], 0)
+        self.assertEqual(result.pfthm_mapa_ug_l.iloc[2], 90.)
+        self.assertEqual(result.pfthm_mapa_ug_l.iloc[5], 210.)
+        self.assertTrue(result.pfthm_recalibrado_ug_l.iloc[2:3].notna().all())
+        self.assertTrue(result.pfthm_mapa_ug_l.iloc[3:5].isna().all())
+        self.assertTrue(result.pfthm_final_ug_l.eq(999.).all())
+        self.assertTrue(pd.notna(result.pfthm_recalibrado_bruto_ug_l.iloc[3]))
+
+    def test_map_migrates_legacy_cache_without_database_and_serializes_new_snapshot(self):
+        import app_mapa_sp as map_app
+        from modelo_pfthm_mapa import MODEL_VERSION
+        raw = raw_frame([("Carbono Orgânico Dissolvido", 5, "mg/L", None)])
+        _, study, predictions = pipeline.build_estudo_thm_tables(pipeline.build_features_coletas_wide(raw))
+        additional = pipeline.COLLECTION_KEY + [c for c in predictions if c not in study]
+        legacy = pipeline.normalize_map_cache(study.merge(predictions[additional], on=pipeline.COLLECTION_KEY))
+        with tempfile.TemporaryDirectory() as folder, patch.dict(map_app.DATA_STORE):
+            cache = Path(folder) / "map.parquet"
+            legacy.to_parquet(cache, index=False)
+            with patch.object(map_app, "CACHE_FILE", cache), \
+                 patch.object(map_app, "fetch_merged_from_azure_sql", side_effect=AssertionError("Unexpected SQL")):
+                map_app.load_data()
+            self.assertEqual(len(list(Path(folder).glob("*.antes_recalibrado_*"))), 1)
+            new = pd.read_parquet(cache)
+            self.assertTrue(new.versao_modelo_recalibrado.eq(MODEL_VERSION).all())
+            client = map_app.app.test_client()
+            payload = client.get("/api/init").get_json()
+            snapshot = payload["snapshots"]["year"]["2020"]["TEST00001"]
+            self.assertAlmostEqual(snapshot[26], new.pfthm_recalibrado_ug_l.iloc[0], places=4)
+            self.assertEqual(snapshot[27], snapshot[26])
+            self.assertEqual(snapshot[28], "Estimado recalibrado")
+            response = client.get("/api/station/TEST00001")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("pfthm_mapa_ug_l", response.get_json()["measurements"][0])
+
     @staticmethod
     def fixture():
         rows = []

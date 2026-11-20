@@ -146,9 +146,17 @@ Desde `2026-11-17-v4-ipt-cod`, as duas equações COD das linhas 1 e 2 da tabela
 exato. Fora de seus pontos originais, ANOR02300 e ARPE02800 respectivamente,
 são extrapolações experimentais não validadas. Resultados negativos são rejeitados,
 sem conversão a zero, e os valores brutos permanecem rastreáveis.
-PFTHM medido tem prioridade. Na ausência, usa-se o modelo 2 em ARPE02800 e
+Nas tabelas históricas, PFTHM medido tem prioridade. Na ausência, usa-se o modelo 2 em ARPE02800 e
 o modelo 1 nos demais pontos, como convenção operacional, sem média ou troca
-após rejeição. Os dois modelos permanecem disponíveis separadamente no mapa.
+após rejeição. Os dois modelos permanecem disponíveis no mapa como comparação histórica.
+Na camada padrão atual, a prioridade é a medição da mesma coleta, seguida
+do quadrático recalibrado congelado, em todos os pontos com COD exato entre
+1 e 159 mg/L. Os novos campos são `pfthm_mapa_ug_l` e `origem_pfthm_mapa`;
+os nomes históricos não foram sobrescritos. Sem previsão utilizável não há
+fallback para equações antigas. A tabela de avaliação é
+`dbo.predicoes_pfthm_recalibradas`, e os coeficientes/testes estão documentados
+em `pipeline/RECALIBRACAO_PFTHM.md`. A inferência no cache é compartilhada
+entre pipeline, reprocessamento e consulta SQL, sem retreinar ao abrir o mapa.
 Equações, proveniência e avaliação estão em `pipeline/MODELOS_IPT_COD.md`.
 `thm_eta_observado_ug_l` e os campos de risco **observado** ficam nulos, pois
 não existem medições correspondentes de THM na saída da ETA nos arquivos.
@@ -158,7 +166,8 @@ A inversa algébrica da figura histórica é:
 `THM_estimado = max(0, (PFTHM - 21,334) / 4,4)`
 
 Ela é identificada como `thm_eta_estimado_reta_historica_ug_l`. A coluna legada
-`thm_eta_final_ug_l` contém a mesma estimativa para compatibilidade do mapa.
+`thm_eta_final_ug_l` preserva a estimativa histórica. A camada atual do mapa
+usa `thm_eta_mapa_estimado_ug_l`, calculado da mesma forma sobre `pfthm_mapa_ug_l`.
 Não se trata de uma nova regressão, medição na ETA, comprovação de vínculo
 hídrico ou demonstração de potabilidade. Os limiares matemáticos correspondem
 a PFTHM de 461,334 para THM 100 e 373,334 para THM 80. O indicador histórico
